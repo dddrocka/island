@@ -1,0 +1,2981 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="light" />
+  <title>MD3 Spring Island — v13 (меню с вкладками)</title>
+  <style>
+    :root {
+      --page: #ffffff;
+      --ink: #111216;
+      --yellow: #d5c66f;
+      --green: #c4e5b8;
+      --green-hover: #d1ebc7;
+      --icon-size: 31px;
+      --tab-height: 62%;
+      --action-width: 78%;
+      --action-radius: 18px;
+      --hover-opacity: .78;
+      --press-scale: .88;
+      --slider-active: #c4c6ae;
+      --slider-inactive: #4a4a44;
+      --slider-thumb: #b9bba3;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      height: 100svh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: var(--page);
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ---------- Панель параметров ---------- */
+    .panel {
+      flex: none;
+      display: flex;
+      flex-direction: column;
+      max-height: 50svh;
+      background: var(--page);
+      color: var(--ink);
+      border-bottom: 1px solid #e6e8ee;
+      font-size: 13px;
+    }
+    .panel-head {
+      flex: none;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 10px 14px;
+      border-bottom: 1px solid #eef0f4;
+    }
+    .panel-title { font-weight: 600; }
+    .panel-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+    .btn {
+      font: inherit;
+      font-size: 12px;
+      padding: 6px 10px;
+      border: 1px solid #d6d9e0;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--ink);
+      cursor: pointer;
+    }
+    .btn:hover { background: rgba(127, 127, 127, .12); }
+    .btn:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+    .panel-body {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      padding: 4px 14px 14px;
+    }
+    .panel-body[hidden] { display: none; }
+    .mp-subhead { margin: 12px 0 4px; font-weight: 600; font-size: 12px; opacity: .55; text-transform: uppercase; letter-spacing: .04em; }
+    .group { border-bottom: 1px solid #f1f2f5; }
+    .group > summary {
+      padding: 10px 0;
+      cursor: pointer;
+      font-weight: 600;
+      list-style: none;
+    }
+    .group > summary::-webkit-details-marker { display: none; }
+    .group > summary::after { content: "▾"; float: right; opacity: .45; }
+    .group:not([open]) > summary::after { content: "▸"; }
+    .row {
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.4fr) 58px;
+      align-items: center;
+      gap: 10px;
+      padding: 5px 0;
+    }
+    .row label { opacity: .85; }
+    .row input[type="range"] { width: 100%; margin: 0; accent-color: var(--ink); }
+    .row input[type="checkbox"] { justify-self: start; width: 16px; height: 16px; margin: 0; accent-color: var(--ink); }
+    .row input[type="color"] {
+      width: 100%;
+      height: 26px;
+      padding: 0;
+      border: 1px solid #d6d9e0;
+      border-radius: 6px;
+      background: none;
+      cursor: pointer;
+    }
+    .row output {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+      opacity: .6;
+    }
+    .export {
+      margin: 12px 0 0;
+      padding: 10px;
+      border-radius: 8px;
+      background: rgba(127, 127, 127, .1);
+      font-size: 11px;
+      white-space: pre-wrap;
+      word-break: break-all;
+      max-height: 180px;
+      overflow: auto;
+      user-select: all;
+    }
+    .export[hidden] { display: none; }
+    @media (max-width: 520px) {
+      .row { grid-template-columns: 1fr auto; }
+      .row input[type="range"],
+      .row input[type="color"] { grid-column: 1 / -1; grid-row: 2; }
+    }
+
+    /* ---------- Остров ---------- */
+    .demo {
+      flex: 1 1 auto;
+      min-height: 0;
+      display: flex;
+      justify-content: center;
+      align-items: flex-end;
+      padding-bottom: max(24px, env(safe-area-inset-bottom));
+    }
+    .island-wrap {
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    /* Ширина и высота задаются из JS. Сжатие и подъём при нажатии — трансформацией острова. */
+    .island {
+      position: relative;
+      isolation: isolate;
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      align-items: stretch;
+      padding: 8px;
+      background: transparent;
+      transform-origin: 50% 50%;
+      will-change: transform;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    .island-shape {
+      position: absolute;
+      z-index: 0;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      overflow: visible;
+      pointer-events: none;
+    }
+    .island-shape path { fill: var(--ink); }
+
+    /* Индикатор двигается через transform (композитор), а не через left. */
+    .indicator {
+      position: absolute;
+      z-index: 1;
+      top: 40%;
+      bottom: 8px;
+      left: 0;
+      width: 2px;
+      background: var(--yellow);
+      border-radius: 3px;
+      pointer-events: none;
+      will-change: transform, width, border-radius;
+    }
+
+    /* Морф углов: индикатор на время анимации рисуется как фигура с четырьмя независимыми углами. */
+    .indicator-morph {
+      position: absolute;
+      z-index: 1;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      overflow: visible;
+      pointer-events: none;
+    }
+    .indicator-morph path { fill: var(--yellow); }
+
+    .island.is-grabbable,
+    .island.is-grabbable .tab { cursor: grab; }
+    .island.is-dragging,
+    .island.is-dragging .tab { cursor: grabbing; }
+
+    .tab, .action {
+      position: relative;
+      z-index: 2;
+      min-width: 0;
+      padding: 0;
+      border: 0;
+      color: #fff;
+      display: grid;
+      place-items: center;
+      background: transparent;
+      cursor: pointer;
+      appearance: none;
+      outline: none;
+    }
+
+    .tab {
+      align-self: end;
+      height: var(--tab-height);
+      border-radius: 0;
+    }
+    .tab svg, .action svg {
+      width: var(--icon-size);
+      height: var(--icon-size);
+      display: block;
+    }
+    .tab svg { overflow: visible; }
+
+    .tab:focus-visible .icon-frame,
+    .action:focus-visible .action-frame {
+      outline: 2px solid #fff;
+      outline-offset: 3px;
+    }
+
+    .icon-frame {
+      display: grid;
+      place-items: center;
+      width: 100%;
+      height: 100%;
+      border-radius: 3px;
+      transition: opacity 160ms ease;
+    }
+    .tab[aria-current="true"] .icon-frame { opacity: 1; }
+    .tab:not([aria-current="true"]):hover .icon-frame { opacity: var(--hover-opacity); }
+
+    .action {
+      z-index: 3;
+      justify-self: center;
+      align-self: end;
+      width: var(--action-width);
+      height: calc(100% - 18px);
+      margin-bottom: -8px;
+      overflow: hidden;
+      color: #fff;
+      background: transparent;
+      border-radius: var(--action-radius) var(--action-radius) 0 0;
+      isolation: isolate;
+    }
+    /* Когда плюс спрятан, он не перехватывает указатель. */
+    .action.is-hidden { pointer-events: none; }
+
+    .action-panel {
+      position: absolute;
+      z-index: 0;
+      inset: 0;
+      border-radius: inherit;
+      background: var(--green);
+      transform: translateY(0%);
+      will-change: transform;
+      pointer-events: none;
+    }
+    .action:hover .action-panel { background: var(--green-hover); }
+    .action-frame {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      place-items: center;
+      width: 100%;
+      height: 100%;
+      transform: translateY(0%);
+      will-change: transform;
+      pointer-events: none;
+    }
+    .action:active svg { transform: scale(var(--press-scale)); }
+    .action svg { transition: transform 180ms cubic-bezier(.2,.8,.2,1); }
+
+    /* Ползунок на верхней грани: все цвета непрозрачные */
+    .slider-svg {
+      position: absolute;
+      z-index: 4;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      overflow: visible;
+      pointer-events: none;
+    }
+    .track-active,
+    .track-inactive { fill: none; stroke-linecap: round; }
+    .track-active { stroke: var(--slider-active); }
+    .track-inactive { stroke: var(--slider-inactive); }
+    .slider-thumb { fill: var(--slider-thumb); }
+    .slider-hit { fill: transparent; pointer-events: none; cursor: pointer; outline: none; }
+    .slider-hit:focus-visible { stroke: var(--slider-thumb); stroke-width: 1; }
+
+
+    /* Окно над островом: собирается из четырёх углов индикатора. Слайдер уходит при открытии. */
+    .slider-svg { transition: opacity 120ms ease; }
+    .island-menu {
+      position: absolute; z-index: 6; left: 0; width: 100%;
+      visibility: hidden; pointer-events: none;
+    }
+    .island.menu-live .island-menu { visibility: visible; pointer-events: none; }
+    .island.menu-live .island-menu-body { pointer-events: auto; }
+    .island-menu-body {
+      position: absolute; left: 0; box-sizing: border-box; padding: 0 16px 4px;
+      display: flex; flex-direction: column; gap: 6px; color: var(--ink); opacity: 0;
+      overflow: hidden;
+    }
+    .island-menu-body > * { flex: none; }
+    /* Полоска над окном меню: вне рамки меню. Тянем вверх — окно отделяется и растягивается */
+    .menu-handle {
+      transform-origin: 50% 100%;
+      position: absolute; left: 0; right: 0; z-index: 4;
+      height: var(--handle-zone, 26px);
+      display: flex; align-items: center; justify-content: center;
+      cursor: grab; touch-action: none; pointer-events: auto;
+      -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
+    }
+    .menu-pill {
+      display: block; flex: none; border-radius: 999px;
+      background: var(--handle-color, #2563ff);
+    }
+    /* Отделённое окно: самостоятельный элемент, без выделения текста и синей подсветки */
+    .island-menu.detached {
+      position: fixed; z-index: 60; will-change: transform; visibility: visible; pointer-events: none;
+      background: none; box-shadow: none; overflow: visible;
+      -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
+    }
+    .island-menu.detached .island-menu-body {
+      position: relative; left: auto; top: auto; width: 100%; height: 100%;
+      opacity: 1; pointer-events: auto; overflow: hidden;
+      padding-top: var(--menu-pad-top, 6px);
+      background: var(--page); border-radius: 24px;
+      box-shadow: 0 10px 34px rgba(0,0,0,.18);
+      -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
+    }
+    .island-menu.detached .island-menu-body * {
+      -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
+    }
+    .island-menu.detached .menu-handle { top: calc(-1 * var(--handle-zone, 26px) - 6px); }
+    .island-menu, .island-menu * { -webkit-touch-callout: none; }
+    .island-menu ::selection { background: transparent; }
+    .island-menu input, .island-menu .mp-export { -webkit-user-select: text; user-select: text; }
+    /* Края отделённого окна: тянем, чтобы менять размер */
+    .menu-edge { display: none; position: absolute; z-index: 5; touch-action: none; }
+    .island-menu.detached .menu-edge { display: block; pointer-events: auto; }
+    .menu-edge-r { top: 0; bottom: 0; right: -8px; width: 16px; cursor: ew-resize; }
+    .menu-edge-b { left: 0; right: 0; bottom: -8px; height: 16px; cursor: ns-resize; }
+    .menu-edge-c { right: -8px; bottom: -8px; width: 22px; height: 22px; cursor: nwse-resize; }
+    /* Ползунки в попапе тянутся по горизонтали, не мешая прокрутке */
+    .island-menu-body input[type="range"],
+    .island-menu-body input[type="color"] { touch-action: none; }
+    .island-menu-body h3 { margin: 0; font-size: 15px; font-weight: 650; }
+    .island-menu-body p { margin: 0; font-size: 12px; line-height: 1.4; opacity: .8; }
+    .island-menu-body button {
+      align-self: flex-end; margin-top: auto; border: 0; border-radius: 999px;
+      padding: 8px 14px; background: var(--ink); color: #fff; font: inherit; cursor: pointer;
+    }
+    .island.menu-open .slider-svg { opacity: 0; }
+    .island.menu-open .slider-svg * { pointer-events: none !important; }
+
+    /* ---------- Меню: вкладки и подвкладки ---------- */
+    .island-menu-body .mp-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .island-menu-body .mp-head button { align-self: auto; margin: 0; padding: 6px 12px; font-size: 12px; }
+    .island-menu-body > .mp-scroll {
+      flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+      touch-action: pan-y; padding: 2px 2px 4px 0;
+    }
+    .mp-tabs {
+      position: relative; display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none;
+      touch-action: pan-x; overscroll-behavior: contain;
+    }
+    .mp-tabs::-webkit-scrollbar { display: none; }
+    .mp-tabs[hidden] { display: none; }
+    .island-menu-body .mp-tab {
+      position: relative; z-index: 1; flex: none; align-self: auto; margin: 0; border: 0; border-radius: var(--mt-pill-r);
+      padding: var(--mt-pad-y) var(--mt-pad-x); background: transparent; color: var(--mt-text);
+      font: inherit; font-size: var(--mt-fs); font-weight: 600;
+      opacity: var(--mt-op); cursor: pointer; transition: opacity 160ms, color var(--mt-text-ms);
+    }
+    .island-menu-body .mp-tab:hover { opacity: var(--mt-op-hover); }
+    .island-menu-body .mp-tab.is-active { color: var(--mt-pill-text); opacity: 1; }
+    .island-menu-body .mp-sub .mp-tab {
+      border-radius: 0; padding: var(--mt-sub-pad-y) var(--mt-sub-pad-x); font-size: var(--mt-sub-fs); font-weight: 500;
+    }
+    .island-menu-body .mp-sub .mp-tab.is-active { color: var(--mt-text); }
+    .mp-tabs { gap: var(--mt-gap); }
+    .mp-ind { position: absolute; left: 0; z-index: 0; pointer-events: none; will-change: transform, width; }
+    .mp-ind.pill { top: 0; bottom: 0; background: var(--mt-pill); border-radius: var(--mt-pill-r); }
+    .mp-ind.line { bottom: 0; height: var(--mt-line-h); background: var(--mt-line); border-radius: 999px; }
+    .island-menu-body .mp-tab:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
+
+    .mrow { display: grid; gap: 2px; padding: 5px 0; }
+    .mrow-top { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; }
+    .mrow-top label, .mrow.inline label { opacity: .85; font-size: 12px; }
+    .mrow-top output { opacity: .65; font-variant-numeric: tabular-nums; }
+    .mrow.inline { grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
+    .mrow input[type="checkbox"] { width: 18px; height: 18px; margin: 0; accent-color: var(--ink); }
+    .mrow input[type="color"] {
+      width: 44px; height: 24px; padding: 0; border: 1px solid rgba(0,0,0,.25);
+      border-radius: 6px; background: none; cursor: pointer;
+    }
+    .island-menu-body .mp-btn { align-self: auto; margin: 0 6px 0 0; padding: 8px 14px; font-size: 12px; }
+    .mp-export {
+      margin: 10px 0 0; padding: 8px; border-radius: 8px; background: rgba(0,0,0,.08);
+      font-size: 10px; white-space: pre-wrap; word-break: break-all; max-height: 140px;
+      overflow: auto; user-select: all; -webkit-user-select: all;
+    }
+    .mp-export[hidden] { display: none; }
+
+    /* ---------- MD3-слайдер: активная часть, ручка, остаток с точкой на конце ---------- */
+    @property --hw { syntax: '<length>'; inherits: true; initial-value: 4px; }
+    .md-slider {
+      --hw: var(--ms-handle-w);
+      --f: 0;
+      position: relative; width: 100%;
+      height: max(var(--ms-h), var(--ms-handle-h), var(--ms-track-h));
+      touch-action: pan-y; cursor: pointer; outline: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .ms-active, .ms-handle, .ms-inactive { position: absolute; top: 50%; transform: translateY(-50%); }
+    .ms-active {
+      left: 0; height: var(--ms-track-h); background: var(--ms-active);
+      width: max(0px, calc((100% - var(--hw)) * var(--f) - var(--ms-gap)));
+      border-radius: var(--ms-outer-r) var(--ms-inner-r) var(--ms-inner-r) var(--ms-outer-r);
+    }
+    .ms-handle {
+      left: calc((100% - var(--hw)) * var(--f)); width: var(--hw); height: var(--ms-handle-h);
+      background: var(--ms-handle); border-radius: var(--ms-handle-r);
+    }
+    .ms-inactive {
+      left: calc((100% - var(--hw)) * var(--f) + var(--hw) + var(--ms-gap)); right: 0;
+      height: var(--ms-track-h); background: var(--ms-inactive); overflow: hidden;
+      border-radius: var(--ms-inner-r) var(--ms-outer-r) var(--ms-outer-r) var(--ms-inner-r);
+    }
+    .ms-dot {
+      position: absolute; right: var(--ms-dot-inset); top: 50%; transform: translateY(-50%);
+      width: var(--ms-dot-d); height: var(--ms-dot-d); border-radius: 50%; background: var(--ms-dot);
+    }
+    .ms-bubble {
+      position: absolute; z-index: 2; pointer-events: none; opacity: 0;
+      left: calc((100% - var(--hw)) * var(--f) + var(--hw) / 2);
+      bottom: calc(50% + var(--ms-handle-h) / 2 + 4px); transform: translateX(-50%);
+      padding: 3px 8px; border-radius: 999px; font-size: 11px; white-space: nowrap;
+      background: var(--ms-bubble-bg); color: var(--ms-bubble-text);
+      transition: opacity 120ms ease;
+    }
+    .md-slider.is-active .ms-bubble { opacity: var(--ms-bubble-on); }
+    .md-slider:focus-visible .ms-handle { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { transition-duration: .01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <main class="demo">
+    <div class="island-wrap">
+      <nav class="island" id="island" aria-label="Основные вкладки">
+        <svg class="island-shape" id="shape" viewBox="0 0 306 74" preserveAspectRatio="none" aria-hidden="true">
+          <path id="shapePath" d=""/>
+        </svg>
+        <div class="indicator" id="indicator" aria-hidden="true"></div>
+        <svg class="indicator-morph" id="morphSvg" viewBox="0 0 306 74" preserveAspectRatio="none" aria-hidden="true" style="display:none">
+          <path id="morphPath" d=""/>
+        </svg>
+        <section class="island-menu" id="islandMenu" aria-hidden="true" aria-label="Меню главной вкладки">
+          <div class="island-menu-body" id="menuBody">
+            <div class="mp-head">
+              <h3 id="menuTitle">Настройки</h3>
+              <button type="button" id="menuClose">Закрыть</button>
+            </div>
+            <div class="mp-tabs" id="mpCats" role="tablist" aria-label="Разделы"></div>
+            <div class="mp-tabs mp-sub" id="mpSubs" role="tablist" aria-label="Подразделы"></div>
+            <div class="mp-scroll" id="mpScroll"></div>
+          </div>
+        </section>
+
+        <button class="tab" type="button" data-tab="home" aria-label="Главная" aria-current="true">
+          <span class="icon-frame">
+            <svg viewBox="0 0 32 32" aria-hidden="true"><path fill="currentColor" d="M3.3 14.1 15 4.4a1.65 1.65 0 0 1 2.1 0l11.6 9.7a1.4 1.4 0 0 1-1.8 2.1l-1.6-1.3v11a1.8 1.8 0 0 1-1.8 1.8H8.5a1.8 1.8 0 0 1-1.8-1.8v-11l-1.6 1.3a1.4 1.4 0 1 1-1.8-2.1Z"/></svg>
+          </span>
+        </button>
+
+        <button class="tab" type="button" data-tab="discover" aria-label="Обзор">
+          <span class="icon-frame">
+            <svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="15" cy="18" r="10.6" fill="currentColor"/><path d="M20.8 8.8 24 5.5" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><circle cx="25.2" cy="5" r="3.1" fill="currentColor"/><circle cx="25.2" cy="5" r="1" fill="var(--ink)" opacity=".62"/><path d="M9.4 12.9a7.3 7.3 0 0 1 6.1-2.9" stroke="#fff" stroke-opacity=".24" stroke-width="1.4" stroke-linecap="round" fill="none"/></svg>
+          </span>
+        </button>
+
+        <button class="action" id="actionButton" type="button" aria-label="Создать">
+          <span class="action-panel" id="actionPanel" aria-hidden="true"></span>
+          <span class="action-frame" id="actionFrame" aria-hidden="true">
+            <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 5.2v21.6M5.2 16h21.6" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="square"/></svg>
+          </span>
+        </button>
+
+        <button class="tab" type="button" data-tab="library" aria-label="Библиотека">
+          <span class="icon-frame">
+            <svg viewBox="0 0 32 32" aria-hidden="true"><path fill="currentColor" d="M3.8 8.7h9.7l2.2 2.5h12.5v14.5a2 2 0 0 1-2 2H3.8a2 2 0 0 1-2-2V10.7a2 2 0 0 1 2-2Z"/><path fill="currentColor" d="M10 4.3h11.8v5.2H10z"/></svg>
+          </span>
+        </button>
+
+        <button class="tab" type="button" data-tab="profile" aria-label="Профиль">
+          <span class="icon-frame">
+            <svg viewBox="0 0 32 32" aria-hidden="true"><path fill="currentColor" d="M16 3.2c-4 0-6.7 3.2-6.7 7.5 0 3.2 1.2 5.7 2.9 7.1-.4 1.8-1.5 3.1-3.5 4.1l-3.5 1.7c-1.7.8-2.7 2.3-2.7 4.1v1h27v-1c0-1.8-1-3.3-2.7-4.1l-3.5-1.7c-2-1-3.1-2.3-3.5-4.1 1.7-1.4 2.9-3.9 2.9-7.1 0-4.3-2.7-7.5-6.7-7.5Z"/></svg>
+          </span>
+        </button>
+        <svg class="slider-svg" id="sliderSvg" viewBox="0 0 306 74" preserveAspectRatio="none">
+          <path class="track-inactive" id="trackInactive" d=""/>
+          <path class="track-active" id="trackActive" d=""/>
+          <rect class="slider-thumb" id="sliderThumb" x="0" y="0" width="0" height="0" rx="0"/>
+          <rect class="slider-hit" id="sliderHit" role="slider" tabindex="0" aria-label="Прогресс" aria-valuemin="0" aria-valuemax="100" aria-valuenow="35" x="0" y="0" width="0" height="0"/>
+        </svg>
+      </nav>
+    </div>
+  </main>
+
+  <script>
+    (() => {
+      'use strict';
+
+      // ---------- Все настраиваемые параметры ----------
+      // Пружина: жёсткость k и затухание ζ; демпфирование c = 2·ζ·√k (масса = 1).
+      const DEFAULTS = {
+        // Переход по нажатию на вкладку
+        bodyMove: { k: 210, z: 0.65 },
+        maxSpeed: 1010,
+        dirThreshold: 200,           // px/s, ширина плавного перехода направления краёв
+        // Перетаскивание
+        bodyDrag: { k: 350, z: 0.57 },
+        dragThreshold: 4,
+        hitPad: 4,
+        // Сдвиг всего острова при перетаскивании
+        driftRatio: 0.08,            // доля от смещения индикатора относительно центра острова (знак — направление)
+        driftVelocity: 0.02,         // доля от скорости индикатора (px на px/s)
+        driftMax: 16,                // px, потолок сдвига
+        driftSpring: { k: 300, z: 0.45 },        // пружина при сдвиге во время перетаскивания
+        driftReleaseSpring: { k: 260, z: 0.55 }, // пружина возврата после отпускания
+        // Края тайла
+        leadEdge: { k: 1160, z: 0.86 },
+        trailEdge: { k: 50, z: 0.3 },
+        stretchOn: true,   // растяжение краёв индикатора при движении (выкл — едет цельным)
+        maxStretch: 21,
+        minWidth: 2,
+        // Стенки и ограничитель
+        wall: { k: 450, z: 0.1 },
+        tether: { k: 1200, z: 0.9 },
+        // Скругление углов тайла
+        radiusMin: 5,
+        radiusMax: 40,
+        radiusRamp: 120,
+        // Плюс
+        panelSpring: { k: 430, z: 0.71 },
+        plusSpring: { k: 260, z: 0.49 },
+        panelHidden: 107,
+        plusHidden: 114,
+        occEnter: 1,
+        occExit: 10,
+        pressScale: 0.5,             // масштаб глифа плюса при нажатии
+        pressMs: 60,
+        actionRadius: 6,
+        // Геометрия
+        islandWidth: 306,
+        islandHeight: 74,
+        tabHeight: 70,
+        actionWidth: 70,
+        iconSize: 27,
+        inset: 3,
+        hoverOpacity: 0.88,
+        // Точность
+        substeps: 480,
+        settlePos: 0.5,
+        settleVel: 3,
+
+        // Нажатие: морф острова
+        pressDelay: 0,               // мс, задержка перед морфом
+        pressOnlyIndicator: false,   // true — реагировать только на нажатие по индикатору
+        islandScale: 0.96,           // масштаб острова в прижатом виде
+        islandLift: 4,               // px, подъём острова
+        pressSpring: { k: 420, z: 0.45 },   // пружина при нажатии (больше z — меньше отскок)
+        releaseSpring: { k: 300, z: 0.5 },  // пружина при отпускании
+        pressSettle: 0.002,          // порог остановки морфа
+
+        // Плоскость и углы в прижатом виде
+        planeY: 35.2,                // %, высота верхней плоскости
+        planeR: 6,                   // px, радиус углов плоскости
+        planeK: 0.3,                 // округлость углов (меньше = квадратнее)
+        indicatorSync: true,         // угол индикатора у края = углу плоскости
+        indTopR: 6,                  // px, угол индикатора, если не синхронизирован
+
+        // Силуэт в покое (как исходный)
+        earWidth: 8.65,              // %, ширина уха от края
+        earDepth: 35.19,             // %, уровень плато между ушами
+        earX1: 0.044,                // доли: изгиб уха, контрольная точка 1 (X)
+        earY1: 0.632,                // доли: изгиб уха, контрольная точка 1 (Y)
+        earX2: 0.333,                // доли: изгиб уха, контрольная точка 2 (X)
+        earY2: 0.974,                // доли: изгиб уха, контрольная точка 2 (Y)
+        bottomX: 6.92,               // %, ширина нижнего скругления
+        bottomY: 34.26,              // %, высота нижнего скругления
+
+        // Ползунок на верхней грани острова (показывается в покое)
+        sliderOn: true,
+        sliderPlaying: true,         // воспроизведение: волна бежит, прогресс идёт
+        sliderProgress: 0.35,        // прогресс 0..1
+        sliderRate: 1.5,             // %/с, скорость прогресса при воспроизведении
+        sliderGap: 6,                // px, расстояние от дорожки до верхней грани острова
+        sliderTrackH: 6,             // px, толщина дорожки
+        sliderThumbD: 20,            // px, диаметр кружка
+        sliderLineW: 6,              // px, ширина линии при перетаскивании
+        sliderLineH: 24,             // px, высота линии при перетаскивании
+        sliderThumbGap: 4,           // px, зазор между кружком и дорожкой
+        sliderHit: 22,               // px, высота зоны нажатия
+        sliderMargin: 0,             // px, отступ дорожки от ушей
+        waveAmp: 3,                  // px, амплитуда волны
+        waveLen: 26,                 // px, длина волны
+        waveSpeed: 26,               // px/s, скорость бега волны
+        waveTaper: 14,               // px, сглаживание волны у краёв и у кружка
+        waveSpring: { k: 180, z: 0.7 },       // пружина появления и пропадания волны
+        squeezeSpring: { k: 300, z: 0.45 },   // пружина: кружок → линия
+        thumbSpring: { k: 360, z: 0.6 },      // пружина движения кружка
+        // Морф углов индикатора: клик по уже активной вкладке «домик» (крайней левой).
+        // Порядок: верхний левый поднимается первым, верхний правый уходит далеко вправо за край острова,
+        // затем нижний левый опускается, последним нижний правый уходит за край.
+        // Углы идут по очереди (delay), у каждого свои пружины по X и Y и отход в начале (preX/preY/preMs).
+        // Вынос (*Out) — насколько цель уходит за край острова: минус — внутрь, плюс — наружу.
+        morph: {
+          on: true,
+          // preX/preY — отход в начале от покоя (+ вправо, + вниз); preMs — сколько длится отход.
+          tl: { delay: 0,   preX: 0,   preY: 0, preMs: 90, x: { k: 380, z: 0.5 }, y: { k: 260, z: 1 }, r: 6 },
+          tr: { delay: 60,  preX: -10, preY: 0, preMs: 90, x: { k: 260, z: 0.7 }, y: { k: 260, z: 1 }, r: 6 },
+          bl: { delay: 120, preX: 0,   preY: 0, preMs: 90, x: { k: 380, z: 0.5 }, y: { k: 260, z: 1 }, r: 6 },
+          br: { delay: 180, preX: -10, preY: 0, preMs: 90, x: { k: 260, z: 0.7 }, y: { k: 260, z: 1 }, r: 6 },
+        },
+        // Вытягивание индикатора вверх и окно над островом
+        pullMax: 40,                       // px, предел растяжения верхней грани
+        pullLift: 0.22,                    // доля растяжения, на которую поднимается нижняя грань
+        pullOpen: 95,                      // px, сколько дотянуть, чтобы открылось окно
+        pullBias: 1,                       // во сколько раз движение вверх должно быть больше движения в сторону
+        pullSpring: { k: 420, z: 0.5 },    // пружина растяжения: z < 1 даёт отскок при возврате
+        menuH: 400,                        // px, высота окна над островом
+        menuGap: 8,                        // px, зазор между островом и окном
+        menuPadTop: 18,                    // px, отступ содержимого окна от верхнего края
+        menuMinH: 120,                     // px, минимальная высота окна при срезе сверху полоской
+        menuCut: { k: 420, z: 0.6 },       // пружина среза высоты сверху: z < 1 — отскок
+        // Полоска над окном меню и отделённое окно. Отдельные настройки, не связаны с вытягиванием острова.
+        menuHandle: {
+          color: '#2563ff',    // цвет полоски (яркий синий)
+          zone: 26,            // px, высота зоны полоски над окном
+          width: 44,           // px, длина полоски в покое
+          widthActive: 76,     // px, длина полоски при нажатии
+          height: 5,           // px, толщина полоски
+          stretchPill: 0,      // во сколько раз полоска вытягивается вместе с окном (0 — полоска не раздувается)
+          openAt: 80,          // px, граница 2: сколько вытянуть, чтобы окно отделилось (граница 1 — начало растяжения)
+          max: 90,             // px, предел растяжения отделённого окна
+          lift: 0.35,          // доля растяжения, на которую поднимается нижняя грань окна
+          radius: 24,          // px, скругление отделённого окна в покое
+          minW: 220, minH: 180, // px, минимальный размер окна при растягивании краёв
+          k: 380, z: 0.5,      // пружина растяжения окна (z < 1 — отскок)
+          whiteAt: 80,         // px, растяжение, при котором панель становится белой (до этого — жёлтая)
+          indFrom: 0.3,        // доля, с которой индикатор на острове вырастает после отделения окна
+          indK: 380, indZ: 0.5, // пружина роста индикатора на острове (z < 1 — отскок)
+          handleK: 300, handleZ: 0.6, // пружина полоски: отстаёт от верхней грани окна
+          contentK: 300, contentZ: 0.6, // пружина содержимого: отстаёт от фона, но не дальше верхней грани окна
+          moveK: 420, moveZ: 0.55,     // пружина перемещения окна по линии
+          resizeK: 420, resizeZ: 0.6,  // пружина размера окна при растягивании краёв
+          widthK: 600, widthZ: 0.6,    // пружина длины полоски
+          cornerK: 420, cornerZ: 0.55, // пружина угла: от угла острова к окну
+          spring: true,        // пружинная анимация; выкл — всё сразу
+          trail: 0.4,          // упругость мягкого края окна (меньше — сильнее отставание)
+          trailZ: 0.5,         // гашение мягкого края
+          backLeads: false,    // выкл: верх тянет, низ отстаёт; вкл: наоборот
+        },
+        // Полоска над окном меню и отделение окна. Отдельные настройки, не связаны с вытягиванием острова.
+        // База (попап по растягиванию): скорость и отскок — множители поверх ручных значений,
+        // каскад и замах — записываются в поля углов, отставание смешивает правые углы с левыми.
+        base: { speed: 100, bounce: 100, cascade: 60, lash: 10, lag: 100 },
+        closeDelay: { bl: 0, br: 60, tl: 120, tr: 180 },   // мс, очерёдность углов при закрытии
+        // MD3-слайдеры в меню: активная часть, зазор, ручка, остаток с точкой на конце
+        ms: {
+          height: 28,          // px, высота слайдера (не меньше ручки и дорожки)
+          trackH: 16,          // px, толщина дорожки
+          gap: 4,              // px, зазор между ручкой и дорожками
+          outerR: 8,           // px, внешнее скругление (края слайдера)
+          innerR: 2,           // px, внутреннее скругление (у ручки)
+          handleW: 4,          // px, ширина ручки
+          handleWActive: 2,    // px, ширина ручки при перетаскивании
+          handleH: 28,         // px, высота ручки
+          handleR: 2,          // px, скругление ручки
+          dotOn: true,         // точка на конце остатка
+          dotD: 4,             // px, диаметр точки
+          dotInset: 6,         // px, отступ точки от правого края
+          spring: true,        // пружинная анимация ручки и дорожки
+          moveK: 360,          // упругость движения ручки
+          moveZ: 0.55,         // гашение отскока движения (меньше — больше отскока)
+          squeezeK: 300,       // упругость сужения ручки при нажатии
+          squeezeZ: 0.45,      // гашение отскока сужения
+          bubble: true,        // подсказка со значением при перетаскивании
+          active: '#111216',   // цвет активной части
+          handle: '#111216',   // цвет ручки
+          inactive: '#111216', // цвет остатка
+          inactiveA: 0.2,      // прозрачность остатка
+          dot: '#111216',      // цвет точки
+          bubbleBg: '#111216', // фон подсказки
+          bubbleText: '#ffffff', // текст подсказки
+        },
+        // Вкладки в меню: пилюля разделов и линия подразделов едут на пружинах
+        mt: {
+          spring: true,        // пружинная анимация пилюли и линии
+          pillK: 420,          // упругость пилюли
+          pillZ: 0.5,          // гашение отскока пилюли (меньше — больше отскока)
+          lineK: 420,          // упругость линии
+          lineZ: 0.5,          // гашение отскока линии
+          pillStretch: false,  // растяжение пилюли при движении (выкл — едет цельной, с отскоком)
+          lineStretch: false,  // растяжение линии при движении
+          trail: 0.4,          // упругость заднего края (меньше — сильнее растяжение)
+          trailZ: 0.5,         // гашение заднего края
+          backLeads: false,    // фон впереди: выкл — задний край отстаёт (фон догоняет текст); вкл — наоборот
+          scrollSpring: true,  // пружинное пролистывание ряда вкладок
+          scrollK: 220,        // упругость пролистывания
+          scrollZ: 0.7,        // гашение отскока пролистывания
+          pillColor: '#111216',
+          pillText: '#ffffff', // текст на пилюле
+          pillR: 20,           // px, скругление пилюли и вкладок
+          lineColor: '#111216',
+          lineH: 2,            // px, толщина линии
+          lineInset: 0,        // px, отступ линии от краёв вкладки
+          textColor: '#111216',
+          opacity: 0.65,       // прозрачность неактивных вкладок
+          opacityHover: 0.9,   // при наведении
+          textMs: 160,         // мс, смена цвета текста
+          fontSize: 12,        // px, разделы
+          subFontSize: 12,     // px, подразделы
+          padX: 12, padY: 6,   // px, отступы разделов
+          subPadX: 8, subPadY: 5, // px, отступы подразделов
+          gap: 4,              // px, зазор между вкладками
+        },
+        colors: {
+          page: '#ffffff',
+          ink: '#111216',
+          yellow: '#d5c66f',
+          green: '#c4e5b8',
+          greenHover: '#d1ebc7',
+          sliderActive: '#c4c6ae',
+          sliderInactive: '#4a4a44',
+          sliderThumb: '#b9bba3',
+        },
+      };
+
+      const STORE_KEY = 'md3-spring-island:v9';
+      const narrow = window.matchMedia('(max-width: 420px)').matches;
+      const defaultsFor = () => {
+        const d = JSON.parse(JSON.stringify(DEFAULTS));
+        if (narrow) {
+          d.iconSize = 28;
+          d.islandHeight = 90;
+          d.islandWidth = Math.min(410, window.innerWidth - 48);
+        }
+        return d;
+      };
+
+      // MANUAL — ручные значения (панель и экспорт). CFG — то, что читает движок, пересчитывается из MANUAL.
+      const MANUAL = defaultsFor();
+
+      // Сохранённые значения накладываем поверх дефолтов.
+      function mergeInto(target, source) {
+        for (const key of Object.keys(source)) {
+          if (!(key in target)) continue;
+          const a = target[key];
+          const b = source[key];
+          if (a && typeof a === 'object' && b && typeof b === 'object') mergeInto(a, b);
+          else if (typeof b === typeof a) target[key] = b;
+        }
+      }
+      try {
+        const saved = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');
+        if (saved) mergeInto(MANUAL, saved);
+      } catch (_) {}
+
+      function save() {
+        try { localStorage.setItem(STORE_KEY, JSON.stringify(MANUAL)); } catch (_) {}
+      }
+
+      // ---------- База: из MANUAL получаем CFG для движка ----------
+      // Скорость: все пружины острова k × s², время (задержки, замах, закрытие) / s.
+      // Отскок: ζ_итог = 1 − (1 − ζ) × bz. Отставание: правые углы по X смешиваются с левыми.
+      // При нулевых настройках базы CFG совпадает с MANUAL.
+      const SPEED_KEYS = ['bodyMove', 'bodyDrag', 'driftSpring', 'driftReleaseSpring',
+                          'leadEdge', 'trailEdge', 'pressSpring', 'releaseSpring', 'pullSpring'];
+      const MORPH_OPEN_ORDER = { tl: 0, tr: 1, bl: 2, br: 3 };   // порядок открытия углов
+      const MORPH_CLOSE_ORDER = { bl: 0, br: 1, tl: 2, tr: 3 };  // порядок закрытия: снизу вверх
+      let CFG = null;
+
+      function rebuild() {
+        const M = MANUAL, B = M.base;
+        const s = Math.max(0.01, B.speed / 100);
+        const bz = B.bounce / 100;
+        const lag = B.lag / 100;
+        const tune = p => ({ k: p.k * s * s, z: 1 - (1 - p.z) * bz });
+        const mix = (a, b) => ({ k: a.k + (b.k - a.k) * lag, z: a.z + (b.z - a.z) * lag });
+
+        const C = JSON.parse(JSON.stringify(M));
+        SPEED_KEYS.forEach(key => { C[key] = tune(M[key]); });
+
+        C.morph.tl.x = tune(M.morph.tl.x);
+        C.morph.bl.x = tune(M.morph.bl.x);
+        C.morph.tr.x = tune(mix(M.morph.tl.x, M.morph.tr.x));
+        C.morph.br.x = tune(mix(M.morph.bl.x, M.morph.br.x));
+        ['tl', 'tr', 'bl', 'br'].forEach(k => {
+          C.morph[k].y = tune(M.morph[k].y);
+          C.morph[k].delay = M.morph[k].delay / s;
+          C.morph[k].preMs = M.morph[k].preMs / s;
+        });
+        Object.keys(MORPH_CLOSE_ORDER).forEach(k => { C.closeDelay[k] = M.closeDelay[k] / s; });
+        CFG = C;
+      }
+
+      // Каскад и замах пишутся в поля углов: панель показывает то же, что база.
+      function writeCascade() {
+        const c = MANUAL.base.cascade;
+        Object.keys(MORPH_OPEN_ORDER).forEach(k => { MANUAL.morph[k].delay = MORPH_OPEN_ORDER[k] * c; });
+        Object.keys(MORPH_CLOSE_ORDER).forEach(k => { MANUAL.closeDelay[k] = MORPH_CLOSE_ORDER[k] * c; });
+      }
+      function writeLash() {
+        MANUAL.morph.tr.preX = -MANUAL.base.lash;
+        MANUAL.morph.br.preX = -MANUAL.base.lash;
+      }
+
+      rebuild();
+
+      const sp = s => ({ k: s.k, c: 2 * s.z * Math.sqrt(s.k) });
+
+      // ---------- DOM ----------
+      const island = document.getElementById('island');
+      const indicator = document.getElementById('indicator');
+      const shapeEl = document.getElementById('shape');
+      const shapePath = document.getElementById('shapePath');
+      const tabs = [...island.querySelectorAll('.tab')];
+      const actionButton = document.getElementById('actionButton');
+      const actionPanel = document.getElementById('actionPanel');
+      const actionFrame = document.getElementById('actionFrame');
+      const actionGlyph = actionFrame.querySelector('svg');
+      const trackActive = document.getElementById('trackActive');
+      const trackInactive = document.getElementById('trackInactive');
+      const sliderThumb = document.getElementById('sliderThumb');
+      const sliderHit = document.getElementById('sliderHit');
+      const sliderSvg = document.getElementById('sliderSvg');
+      const morphSvg = document.getElementById('morphSvg');
+      const morphPath = document.getElementById('morphPath');
+      const islandMenu = document.getElementById('islandMenu');
+      const menuBody = document.getElementById('menuBody');
+      const menuClose = document.getElementById('menuClose');
+      const menuTitle = document.getElementById('menuTitle');
+      // Вытягивание индикатора вверх: растяжение верхней грани и отскок при возврате
+      const pullStretch = d => CFG.pullMax * (1 - Math.exp(-d / CFG.pullMax));
+      function stepPull(dt) {
+        const s = sp(CFG.pullSpring);
+        S.pullV += (s.k * (S.pullT - S.pullP) - s.c * S.pullV) * dt;
+        S.pullP += S.pullV * dt;
+      }
+      let menuOpen = false;
+      let menuDetached = false;   // окно настроек отделено от острова (остров в обычном виде)
+      const morphTop = () => -(CFG.menuH + CFG.menuGap) - 60;    // верх холста морфа с запасом
+      let indRad = { tl: 6, tr: 6, br: 6, bl: 6 };         // скругления индикатора в покое (обновляет paint)
+
+      function toggleIslandMenu(force) {
+        const opening = force ?? !menuOpen;
+        if (opening && menuDetached) attachMenu();
+        if (opening === menuOpen) return;
+        menuOpen = opening;
+        if (!opening) S.cutT = 0;
+        island.classList.toggle('menu-open', opening);
+        islandMenu.setAttribute('aria-hidden', String(!opening));
+        if (opening) {
+          menuClose.focus({ preventScroll: true });
+        }
+        if (reduced || !CFG.morph.on) {
+          // Без анимации: сразу ставим углы в цель
+          const r = morphRest();
+          MORPH_KEYS.forEach(k => {
+            const p = opening ? morphWinOf(k) : morphRestOf(k, r);
+            Object.assign(S.mo.c[k], { x: p.x, y: p.y, vx: 0, vy: 0 });
+            S.mo.c[k].t = 1e6;
+            S.mo.c[k].opening = opening;
+            S.mo.c[k].skipPre = false;
+          });
+          S.mo.on = opening;
+          S.mo.opening = opening;
+          S.cut = S.cutT; S.cutV = 0; S.cutC = S.cut; S.cutCV = 0; S.mo.openDone = opening;
+          paint();
+          return;
+        }
+        startMorph(opening);
+      }
+      // ---------- Полоска над окном и отделённое окно ----------
+      const menuHandle = document.createElement('div');
+      menuHandle.className = 'menu-handle';
+      menuHandle.setAttribute('role', 'presentation');
+      const pill = document.createElement('i');
+      pill.className = 'menu-pill';
+      pill.setAttribute('aria-hidden', 'true');
+      menuHandle.append(pill);
+      islandMenu.prepend(menuHandle);
+      const edgeEls = { r: 'menu-edge menu-edge-r', b: 'menu-edge menu-edge-b', c: 'menu-edge menu-edge-c' };
+      const edgeDivs = Object.entries(edgeEls).map(([kind, cls]) => {
+        const el = document.createElement('div');
+        el.className = cls;
+        el.setAttribute('aria-hidden', 'true');
+        el.addEventListener('pointerdown', e => startResize(kind, e));
+        islandMenu.append(el);
+        return el;
+      });
+
+      // Пружины: x — текущее значение, t — цель, v — скорость. Каждая со своими настройками.
+      const SPRING_KEYS = { st: ['k', 'z'], mx: ['moveK', 'moveZ'], sw: ['resizeK', 'resizeZ'],
+                            sh: ['resizeK', 'resizeZ'], pw: ['widthK', 'widthZ'], cr: ['cornerK', 'cornerZ'], bot: ['k', 'z'], ct: ['contentK', 'contentZ'], hl: ['handleK', 'handleZ'], ig: ['indK', 'indZ'] };
+      const mkSpring = () => ({ x: 0, t: 0, v: 0 });
+      const hd = { init: false, base: null, raf: 0, last: 0,
+                   st: mkSpring(), mx: mkSpring(), sw: mkSpring(), sh: mkSpring(), pw: mkSpring(), cr: mkSpring(), bot: mkSpring(), ct: mkSpring(), hl: mkSpring(), ig: mkSpring() };
+      hd.ig.x = hd.ig.t = 1;   // индикатор на острове в покое полного размера
+      let handleDrag = null, edgeDrag = null;
+
+      // Верхний край (st) и нижний (bot) едут на пружинах: один быстрый, другой мягкий (отстаёт).
+      // backLeads меняет роли местами.
+      const hexRgb = h => { const n = parseInt(String(h).slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
+      const mixHex = (a, b, t) => { const A = hexRgb(a), B = hexRgb(b); return `rgb(${A.map((v, i) => Math.round(v + (B[i] - v) * t)).join(',')})`; };
+      function hdParams(key) {
+        const c = CFG.menuHandle;
+        if (key === 'st') return c.backLeads ? [c.k * c.trail, c.trailZ] : [c.k, c.z];
+        if (key === 'bot') return c.backLeads ? [c.k, c.z] : [c.k * c.trail, c.trailZ];
+        const [kk, zz] = SPRING_KEYS[key];
+        return [c[kk], c[zz]];
+      }
+      function hdStep(dt) {
+        for (const key of Object.keys(SPRING_KEYS)) {
+          const s = hd[key];
+          const [k, zk] = hdParams(key);
+          const cc = 2 * zk * Math.sqrt(k);
+          s.v += (k * (s.t - s.x) - cc * s.v) * dt;
+          s.x += s.v * dt;
+        }
+        // Отставание не выходит за верхний край окна (граница, от которой оно тянется).
+        const lim = Math.max(0, hd.st.x);
+        if (hd.bot.x < 0 || hd.bot.x > lim) { hd.bot.x = clamp(hd.bot.x, 0, lim); hd.bot.v = 0; }
+        // Содержимое отстаёт от фона, но не дальше верхней грани окна: отставание = st - ct ∈ [0, st].
+        if (hd.ct.x < 0 || hd.ct.x > lim) { hd.ct.x = clamp(hd.ct.x, 0, lim); hd.ct.v = 0; }
+        if (hd.hl.x < 0 || hd.hl.x > lim) { hd.hl.x = clamp(hd.hl.x, 0, lim); hd.hl.v = 0; }
+      }
+      function hdSettled() {
+        return Object.keys(SPRING_KEYS).every(key => {
+          const s = hd[key];
+          return Math.abs(s.t - s.x) < 0.05 && Math.abs(s.v) < 0.5;
+        });
+      }
+      function hdSnap() {
+        Object.keys(SPRING_KEYS).forEach(key => { const s = hd[key]; s.x = s.t; s.v = 0; });
+        hdPaint();
+      }
+      function hdPaint() {
+        const c = CFG.menuHandle;
+        if (menuDetached && hd.base) {
+          const b = hd.base;
+          const w = Math.max(c.minW, b.w + hd.sw.x);
+          const h = Math.max(c.minH, b.h + hd.sh.x + hd.st.x - hd.bot.x);
+          // left/top фиксированы в detachMenu; смещение — transform, без пересчёта верстки на каждом кадре.
+          islandMenu.style.transform = `translate3d(${hd.mx.x.toFixed(2)}px, ${(-hd.st.x).toFixed(2)}px, 0)`;
+          islandMenu.style.width = w.toFixed(2) + 'px';
+          islandMenu.style.height = h.toFixed(2) + 'px';
+          menuBody.style.borderRadius = Math.max(0, hd.cr.x).toFixed(2) + 'px';
+          // Цвет по стадии растяжения: жёлтый в покое → белый при растяжении
+          const tw = clamp(hd.st.x / Math.max(1, c.whiteAt), 0, 1);
+          menuBody.style.background = mixHex(CFG.colors.yellow, CFG.colors.page, tw);
+          menuHandle.style.transform = `translateY(${(hd.st.x - hd.hl.x).toFixed(2)}px)`;
+          // Отставание содержимого: отступ сверху растёт на величину, на которую содержимое отстало от фона
+          menuBody.style.paddingTop = (CFG.menuPadTop + Math.max(0, hd.st.x - hd.ct.x)).toFixed(2) + 'px';
+        }
+        pill.style.width = Math.max(2, hd.pw.x).toFixed(2) + 'px';
+        // Индикатор на острове растёт пружиной после отделения (в покое — полного размера)
+        indicator.style.transform = `translate3d(${Math.min(S.L, S.R).toFixed(2)}px, 0, 0) scale(${hd.ig.x.toFixed(4)})`;
+        pill.style.height = Math.max(2, c.height + hd.st.x * c.stretchPill).toFixed(2) + 'px';
+      }
+      function hdTick(now) {
+        hd.raf = 0;
+        if (!hd.last) hd.last = now;
+        const frame = Math.min((now - hd.last) / 1000, 1 / 30);
+        hd.last = now;
+        const n = Math.max(1, Math.ceil(frame * 240));
+        const dt = frame / n;
+        for (let i = 0; i < n; i++) hdStep(dt);
+        hdPaint();
+        if (hdSettled()) { hdSnap(); hd.last = 0; return; }
+        hd.raf = requestAnimationFrame(hdTick);
+      }
+      function hdKick() {
+        const c = CFG.menuHandle;
+        if (!hd.init) { hd.init = true; hd.pw.x = hd.pw.t = c.width; }
+        hd.pw.t = handleDrag ? c.widthActive : c.width;
+        hd.bot.t = hd.st.t * c.lift;
+        hd.ct.t = hd.st.t;   // содержимое догоняет фон пружиной ct
+        hd.hl.t = hd.st.t;   // полоска догоняет верхнюю грань окна пружиной hl
+        if (!c.spring || reduced) { hdSnap(); return; }
+        if (!hd.raf) { hd.last = 0; hd.raf = requestAnimationFrame(hdTick); }
+      }
+
+      // Вернуть окно в остров (оно скрыто, пока меню не открыто).
+      // Вернуть окно в остров: оно снова открытое меню. Стартовое растяжение плавно возвращается пружиной среза.
+      function attachMenu(cutT = 0) {
+        if (!menuDetached) return;
+        const ext = hd.st.x;
+        hd.ig.t = 0;   // индикатор уходит под окно
+        menuDetached = false;
+        edgeDrag = null;   // жест полоски не сбрасываем: тянем дальше уже прикреплённое окно
+        hd.base = null;
+        ['st', 'bot', 'ct', 'hl', 'mx', 'sw', 'sh'].forEach(key => { hd[key].x = hd[key].t = hd[key].v = 0; });
+        island.insertBefore(islandMenu, island.querySelector('.tab'));
+        islandMenu.classList.remove('detached');
+        islandMenu.removeAttribute('style');
+        menuBody.style.borderRadius = '';
+        menuBody.style.paddingTop = '';
+        menuBody.style.background = '';
+        menuHandle.style.top = '';
+        menuHandle.style.transform = '';
+        menuOpen = true;
+        island.classList.add('menu-open');
+        S.mo.on = true; S.mo.opening = true; S.mo.openDone = true;
+        S.cutT = cutT; S.cut = S.cutC = -ext; S.cutV = S.cutCV = 0;
+        MORPH_KEYS.forEach(k => {
+          const p = morphWinOf(k);
+          Object.assign(S.mo.c[k], { x: p.x, y: p.y, vx: 0, vy: 0, t: 1e6, opening: true, skipPre: false });
+        });
+        islandMenu.setAttribute('aria-hidden', 'false');
+        hdKick();
+        ensureRunning();
+      }
+
+      // Отделить окно: оно становится самостоятельным элементом на том же месте.
+      // Скругление начинается с текущего угла острова и пружиной переходит к окну.
+      // Отделить окно: то же меню, без закрывающего морфа. Базовый размер — меню из индикатора (срез cut0).
+      // Всё, на что окно уже вытянуто в прикреплённом виде, остаётся стартовым растяжением (ext).
+      function detachMenu(cut0 = 0) {
+        if (menuDetached || !menuOpen) return 0;
+        const c = CFG.menuHandle;
+        const ext = Math.max(0, cut0 - S.cut);
+        S.cut = S.cutC = cut0;
+        paint();   // ставим тело окна на размер меню из индикатора
+        const r = menuBody.getBoundingClientRect();
+        const corners = MORPH_KEYS.map(k => (S.mo.r && S.mo.r[k] != null) ? S.mo.r[k] : indRad[k]);
+        const r0 = corners.reduce((a, b) => a + b, 0) / corners.length;
+        menuDetached = true;
+        hd.base = { left: r.left, top: r.top, w: r.width, h: r.height };
+        ['st', 'bot', 'ct', 'hl', 'mx', 'sw', 'sh'].forEach(key => { hd[key].x = hd[key].t = hd[key].v = 0; });
+        hd.st.x = hd.st.t = ext;
+        hd.cr.x = r0; hd.cr.t = c.radius; hd.cr.v = 0;
+        document.body.appendChild(islandMenu);
+        islandMenu.classList.add('detached');
+        Object.assign(islandMenu.style, {
+          left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px',
+        });
+        menuHandle.style.top = '';
+        menuHandle.style.transform = '';
+        menuHandle.style.opacity = '';
+        Object.assign(menuBody.style, { top: '', height: '', width: '', paddingTop: '', opacity: '' });
+        menuBody.style.background = mixHex(CFG.colors.yellow, CFG.colors.page, clamp(ext / Math.max(1, c.whiteAt), 0, 1));
+        menuOpen = false;
+        island.classList.remove('menu-open');
+        S.mo.on = false; S.cutT = S.cut = S.cutC = 0; S.cutV = S.cutCV = 0;
+        hd.ig.x = c.indFrom; hd.ig.t = 1; hd.ig.v = 0;   // на острове вырастает индикатор
+        islandMenu.setAttribute('aria-hidden', 'false');
+        hdKick();
+        return ext;
+      }
+
+      // Полоска. Вверх — отделить и растянуть окно (после отделения — ещё и вверх растягивает).
+      // Вниз — вернуть в остров. Вбок — перемещает отделённое окно. Отпустили — пружина.
+      islandMenu.addEventListener('mousedown', e => {
+        if (e.target.closest && e.target.closest('input, textarea, .mp-export')) return;
+        e.preventDefault();
+      });
+      menuHandle.addEventListener('pointerdown', e => {
+        if (e.button !== 0 || !e.isPrimary) return;
+        e.stopPropagation();
+        e.preventDefault();
+        handleDrag = { id: e.pointerId, x0: e.clientX, y0: e.clientY, axis: null, base: 0, ext: 0, bx: hd.mx.t, cut0: S.cutT, fromDetached: menuDetached };
+        hdKick();
+      });
+      window.addEventListener('pointermove', e => {
+        if (!handleDrag || e.pointerId !== handleDrag.id) return;
+        const c = CFG.menuHandle;
+        const dx = e.clientX - handleDrag.x0;
+        const up = handleDrag.y0 - e.clientY;
+        if (!handleDrag.axis) {
+          if (Math.hypot(dx, up) < 6) return;
+          handleDrag.axis = menuDetached && Math.abs(dx) > Math.abs(up) ? 'x' : 'y';
+        }
+        if (handleDrag.axis === 'x') {
+          const b = hd.base;
+          const minX = -b.left, maxX = window.innerWidth - b.left - (b.w + hd.sw.t);
+          hd.mx.t = hd.mx.x = clamp(handleDrag.bx + dx, minX, maxX);
+          hd.mx.v = 0;
+          hdPaint();
+          hdKick();
+          return;
+        }
+        const B = c.openAt, m = c.max;
+        // Уже отделённое окно тянем сразу пружиной растяжения, без двух границ.
+        if (handleDrag.fromDetached) {
+          hd.st.t = m * (1 - Math.exp(-Math.max(0, up) / m));
+          hdKick();
+          return;
+        }
+        if (!menuDetached) {
+          // Граница 1 — начало растяжения: окно из индикатора тянется вверх и меняет цвет.
+          if (up < B) {
+            S.cutT = clamp(handleDrag.cut0 - up, -B, CFG.menuH - CFG.menuMinH);
+            ensureRunning();
+            hdKick();
+            return;
+          }
+          // Граница 2 — окно отделяется, на острове вырастает индикатор.
+          detachMenu(handleDrag.cut0);
+          if (!menuDetached) return;
+        } else if (up < B) {
+          // Вернули ниже границы 2 — снова прикреплённое окно.
+          attachMenu(clamp(handleDrag.cut0 - up, -B, CFG.menuH - CFG.menuMinH));
+          ensureRunning();
+          hdKick();
+          return;
+        }
+        // После границы 2 растяжение тянется с отставанием и упирается в предел (пружина пика).
+        const over = up - B;
+        hd.st.t = B + (over > 0 ? m * (1 - Math.exp(-over / m)) : 0);
+        hdKick();
+      });
+      const endHandle = e => {
+        if (!handleDrag || e.pointerId !== handleDrag.id) return;
+        handleDrag = null;
+        if (menuDetached) { hd.st.t = 0; hd.cr.t = CFG.menuHandle.radius; }
+        else if (menuOpen) { S.cutT = 0; ensureRunning(); }   // прикреплённое окно пружиной возвращается к размеру индикатора
+        hdKick();
+      };
+      window.addEventListener('pointerup', endHandle);
+      window.addEventListener('pointercancel', endHandle);
+
+      // Края отделённого окна: тянем — меняем размер; пружина даёт отскок при отпускании.
+      function startResize(kind, e) {
+        if (e.button !== 0 || !e.isPrimary || !menuDetached) return;
+        e.stopPropagation();
+        e.preventDefault();
+        edgeDrag = { id: e.pointerId, kind, x0: e.clientX, y0: e.clientY, sw: hd.sw.t, sh: hd.sh.t };
+        hdKick();
+      }
+      window.addEventListener('pointermove', e => {
+        if (!edgeDrag || e.pointerId !== edgeDrag.id || !hd.base) return;
+        const c = CFG.menuHandle, b = hd.base;
+        const dx = e.clientX - edgeDrag.x0, dy = e.clientY - edgeDrag.y0;
+        const maxW = window.innerWidth - (b.left + hd.mx.t);
+        const maxH = window.innerHeight - b.top;
+        if (edgeDrag.kind !== 'b') { hd.sw.t = hd.sw.x = clamp(edgeDrag.sw + dx, c.minW - b.w, maxW - b.w); hd.sw.v = 0; }
+        if (edgeDrag.kind !== 'r') { hd.sh.t = hd.sh.x = clamp(edgeDrag.sh + dy, c.minH - b.h, maxH - b.h); hd.sh.v = 0; }
+        hdPaint();
+        hdKick();
+      });
+      const endEdge = e => {
+        if (!edgeDrag || e.pointerId !== edgeDrag.id) return;
+        edgeDrag = null;
+        hdKick();
+      };
+      window.addEventListener('pointerup', endEdge);
+      window.addEventListener('pointercancel', endEdge);
+
+      menuClose.addEventListener('click', () => {
+        if (menuDetached) { attachMenu(); toggleIslandMenu(false); }
+        else toggleIslandMenu(false);
+      });
+      document.addEventListener('pointerdown', e => {
+        if (menuOpen && !island.contains(e.target) && !islandMenu.contains(e.target)) toggleIslandMenu(false);
+      });
+
+
+      const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+      let reduced = motionQuery.matches;
+      motionQuery.addEventListener('change', e => { reduced = e.matches; });
+
+      // ---------- Состояние ----------
+      const S = {
+        cut: 0, cutT: 0, cutV: 0, cutC: 0, cutCV: 0,   // срез высоты окна сверху: текущий, цель, скорость
+        body: 0, bodyV: 0, bodyTarget: 0, pullP: 0, pullV: 0, pullT: 0,  // опорная позиция левого края тайла
+        L: 0, R: 0, vL: 0, vR: 0,          // видимые края индикатора (в локальных координатах)
+        panel: 0, tPanel: 0, vPanel: 0,
+        plus: 0, tPlus: 0, vPlus: 0,
+        plusHidden: false,
+        p: 0, vp: 0, pTarget: 0,
+        dx: 0, vdx: 0, dxTarget: 0,
+        wv: 0, vwv: 0,                     // волна: вес появления (0 — ровно, 1 — волна)
+        phase: 0,                          // фаза бегущей волны
+        progress: CFG.sliderProgress, sq: 0, vsq: 0, // прогресс и сжатие кружка в линию
+        thumb: 0, vthumb: 0,               // положение кружка от начала дорожки
+        sDrag: false,                      // перетаскивание ползунка        // сдвиг всего острова по горизонтали           // морф нажатия: 0 — покой, 1 — прижато
+        scale: 1,                          // текущий масштаб острова (нужен для координат указателя)
+        mode: 'move',                      // 'move' — переход по кнопке, 'drag' — за пальцем
+      };
+
+      // Состояние морфа углов: четыре угла, у каждого позиция, скорость и флаг старта.
+      const newCorner = () => ({ x: 0, y: 0, vx: 0, vy: 0, t: 0, opening: false, skipPre: false });
+      S.mo = { on: false, opening: false, r: { tl: 6, tr: 6, br: 6, bl: 6 }, c: { tl: newCorner(), tr: newCorner(), br: newCorner(), bl: newCorner() } };
+
+      let slots = [];                      // {x, w} для каждой вкладки
+      let tabW = 0, minX = 0, maxX = 0;    // допустимый диапазон левого края тела
+      let leftMid = 0, rightMid = 0;       // середины переходов для скругления углов
+      let actionL = 0, actionR = 0;
+      let indH = 0;                        // высота индикатора: предел скругления
+      let indTop = 0;                      // верх индикатора в координатах острова (для морфа углов)
+      let IW = 1, IH = 1;                  // размер острова без трансформаций
+      let activeId = null;
+      let drag = null;
+      let justDragged = false;
+      let pressPointer = null;
+      let pressTimer = 0;
+      let rafId = 0, lastT = 0;
+
+      const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+      const lerp = (a, b, t) => a + (b - a) * t;
+      const blendSpring = (a, b, t) => sp({ k: lerp(a.k, b.k, t), z: lerp(a.z, b.z, t) });
+
+      // t = 1 — угол полностью круглый (radiusMax), t = 0 — почти прямой (radiusMin).
+      const cornerRadius = t => {
+        const s = clamp(t, 0, 1);
+        return CFG.radiusMin + (CFG.radiusMax - CFG.radiusMin) * s * s * (3 - 2 * s);
+      };
+
+      // Полу-неявный Эйлер: сначала скорость, потом позиция.
+      function step2(x, v, target, s, dt) {
+        v += (s.k * (target - x) - s.c * v) * dt;
+        return [x + v * dt, v];
+      }
+
+      // Мягкая стенка: вне диапазона сила возвращает обратно, внутри — ноль.
+      function wallAccel(x, v, lo, hi) {
+        const W = sp(CFG.wall);
+        if (x < lo) return W.k * (lo - x) - W.c * v;
+        if (x > hi) return W.k * (hi - x) - W.c * v;
+        return 0;
+      }
+
+      // ---------- Силуэт острова ----------
+      const smooth = t => t * t * (3 - 2 * t);
+
+      // Дорожка ползунка лежит на плато острова, между ушами (отступ — sliderMargin).
+      function sliderGeom() {
+        const eW = CFG.earWidth / 100 * IW;
+        const x0 = eW + CFG.sliderMargin;
+        const x1 = IW - eW - CFG.sliderMargin;
+        return { x0, x1, L: Math.max(1, x1 - x0) };
+      }
+
+      // Одна функция волны и для дорожки, и для верхней грани острова — поэтому они повторяют друг друга точь-в-точь.
+      // Огибающая гасит волну у краёв дорожки и у кружка, чтобы не было ступенек.
+      function waveAt(x, g, thumbX) {
+        const amp = CFG.waveAmp * S.wv;
+        if (amp === 0) return 0;
+        const u = x - g.x0;
+        const t = Math.max(1, CFG.waveTaper);
+        const a = smooth(clamp(u / t, 0, 1));
+        const b = smooth(clamp((thumbX - x) / t, 0, 1));
+        return amp * a * b * Math.sin(2 * Math.PI * u / Math.max(1, CFG.waveLen) - S.phase);
+      }
+
+      // Верхняя грань острова: в покое — плато с волной ползунка, при прижатии — ровная плоскость с квадратными углами.
+      function buildShape(p) {
+        const W = IW, H = IH;
+        const eW = CFG.earWidth / 100 * W;
+        const eYi = CFG.earDepth / 100 * H;      // уровень плато в покое
+        const eYp = CFG.planeY / 100 * H;        // уровень плоскости в прижатом виде
+        const bX = CFG.bottomX / 100 * W;
+        const bY = CFG.bottomY / 100 * H;
+        const r = Math.max(0, Math.min(CFG.planeR, W / 2, H / 2));
+        const kr = CFG.planeK * r;
+        const e1x = CFG.earX1 * eW, e1y = CFG.earY1 * eYi;
+        const e2x = CFG.earX2 * eW, e2y = CFG.earY2 * eYi;
+        const mix = (a, b) => a + (b - a) * p;
+        const pt = (x, y) => `${x.toFixed(2)} ${y.toFixed(2)}`;
+        const g = sliderGeom();
+        const thumbX = g.x0 + S.thumb;
+
+        const xa = mix(eW, r);
+        const xb = mix(W - eW, W - r);
+        const span = xb - xa;
+        const n = Math.max(2, Math.min(240, Math.ceil(span / 2)));
+        const topAt = i => {
+          const x = xa + span * i / n;
+          const wave = CFG.sliderOn ? waveAt(x, g, thumbX) : 0;
+          return [x, mix(eYi + wave, eYp)];
+        };
+
+        const A   = pt(0, mix(0, eYp + r));
+        const P1L = pt(mix(e1x, 0), mix(e1y, eYp + r - kr));
+        const P2L = pt(mix(e2x, r - kr), mix(e2y, eYp));
+        const [sx, sy] = topAt(0);
+        let d = `M${A} C${P1L} ${P2L} ${pt(sx, sy)}`;
+        for (let i = 1; i <= n; i++) {
+          const [x, y] = topAt(i);
+          d += ` L${pt(x, y)}`;
+        }
+        const P1R = pt(mix(W - e2x, W - r + kr), mix(e2y, eYp));
+        const P2R = pt(mix(W - e1x, W), mix(e1y, eYp + r - kr));
+        const PR  = pt(W, mix(0, eYp + r));
+        const Q1  = pt(W, H - bY);
+        const C3  = pt(W, H - 0.46 * bY);
+        const C4  = pt(W - 0.417 * bX, H);
+        const Q2  = pt(W - bX, H);
+        const Q3  = pt(bX, H);
+        const C5  = pt(0.417 * bX, H);
+        const C6  = pt(0, H - 0.46 * bY);
+        const Q4  = pt(0, H - bY);
+        return `${d} C${P1R} ${P2R} ${PR} L${Q1} C${C3} ${C4} ${Q2} L${Q3} C${C5} ${C6} ${Q4} Z`;
+      }
+
+      // ---------- Геометрия ----------
+      // Координаты вкладок считаем без учёта масштаба острова: делим на текущий S.scale.
+      function layout() {
+        const ir = island.getBoundingClientRect();
+        const s = S.scale || 1;
+        slots = tabs.map(tab => {
+          const r = tab.getBoundingClientRect();
+          return { x: (r.left - ir.left) / s + CFG.inset, w: Math.max(1, r.width / s - CFG.inset * 2) };
+        });
+        tabW = slots[0].w;
+        minX = slots[0].x;
+        maxX = slots[slots.length - 1].x;
+        const n = slots.length;
+        leftMid = slots[0].x + (slots[1].x - slots[0].x) / 2;
+        rightMid = (slots[n - 2].x + slots[n - 1].x) / 2 + tabW;
+        actionL = actionButton.offsetLeft;
+        actionR = actionL + actionButton.offsetWidth;
+        IW = island.offsetWidth || 1;
+        IH = island.offsetHeight || 1;
+        const pTop = indicator.style.top, pH = indicator.style.height;
+        indicator.style.top = ''; indicator.style.height = '';
+        indH = indicator.offsetHeight || 0;
+        indTop = indicator.offsetTop || 0;
+        indicator.style.top = pTop; indicator.style.height = pH;
+        morphSvg.setAttribute('viewBox', `0 0 ${IW} ${IH}`);
+        shapeEl.setAttribute('viewBox', `0 0 ${IW} ${IH}`);
+        sliderSvg.setAttribute('viewBox', `0 0 ${IW} ${IH}`);
+      }
+
+      function nearestIndex(left) {
+        const center = left + tabW / 2;
+        let best = 0;
+        let bestDist = Infinity;
+        slots.forEach((s, i) => {
+          const d = Math.abs(center - (s.x + s.w / 2));
+          if (d < bestDist) { bestDist = d; best = i; }
+        });
+        return best;
+      }
+
+      // ---------- Состояние вкладок ----------
+      function setActive(index, force = false) {
+        const id = tabs[index].dataset.tab;
+        if (!force && id === activeId) return;
+        activeId = id;
+        tabs.forEach((tab, i) => {
+          if (i === index) tab.setAttribute('aria-current', 'true');
+          else tab.removeAttribute('aria-current');
+        });
+      }
+
+      // ---------- Окклюзия плюса (с гистерезисом) ----------
+      function updateOcclusion(instant = false) {
+        const lo = Math.min(S.L, S.R);
+        const hi = Math.max(S.L, S.R);
+        if (!S.plusHidden && hi > actionL - CFG.occEnter && lo < actionR + CFG.occEnter) {
+          S.plusHidden = true;
+        } else if (S.plusHidden && (hi < actionL - CFG.occExit || lo > actionR + CFG.occExit)) {
+          S.plusHidden = false;
+        }
+        S.tPanel = S.plusHidden ? CFG.panelHidden : 0;
+        S.tPlus = S.plusHidden ? CFG.plusHidden : 0;
+        actionButton.classList.toggle('is-hidden', S.plusHidden);
+        actionButton.inert = S.plusHidden;
+        if (instant || reduced) {
+          S.panel = S.tPanel;
+          S.plus = S.tPlus;
+          S.vPanel = 0;
+          S.vPlus = 0;
+        }
+      }
+
+      // ---------- Морф углов индикатора ----------
+      // Углы по контуру: верх-лево, верх-право, низ-право, низ-лево. Порядок старта задаёт delay.
+      const MORPH_KEYS = ['tl', 'tr', 'br', 'bl'];
+      const morphIsTop = k => k === 'tl' || k === 'tr';
+      const morphIsRight = k => k === 'tr' || k === 'br';
+
+      // Покой: текущие края индикатора и его верх/низ в координатах острова.
+      function morphRest() {
+        return {
+          lo: Math.min(S.L, S.R),
+          hi: Math.max(S.L, S.R),
+          top: indTop - S.pullP,
+          bot: indTop + indH - S.pullP * CFG.pullLift,
+        };
+      }
+      function morphRestOf(k, r) {
+        return { x: morphIsRight(k) ? r.hi : r.lo, y: morphIsTop(k) ? r.top : r.bot };
+      }
+      // Окно над островом: углы индикатора собираются в него по очереди, с отходом и пружинами.
+      // Каждый угол ведёт свой отсчёт (c.t). При развороте на полпути угол продолжает с текущей точки.
+      function morphWinOf(k) {
+        const bottom = -CFG.menuGap, top = bottom - CFG.menuH + S.cut;
+        return { x: morphIsRight(k) ? IW : 0, y: morphIsTop(k) ? top : bottom };
+      }
+      // Радиус угла окна — как у верхних ушей и нижних углов острова.
+      const morphWinR = k => (morphIsTop(k) ? CFG.earWidth / 100 * IW : CFG.bottomX / 100 * IW);
+      // Порядок возврата: нижний левый первым, верхний правый последним.
+
+      // Цель угла: ждёт очереди на месте, затем отход (от начальной точки), затем конечная точка.
+      function morphGoal(k, c) {
+        const cfg = CFG.morph[k];
+        const local = c.t - (c.opening ? cfg.delay : CFG.closeDelay[k]);
+        if (local < 0) return { x: c.x, y: c.y };
+        const start = c.opening ? morphRestOf(k, morphRest()) : morphWinOf(k);
+        if (local < cfg.preMs && !c.skipPre) return { x: start.x + cfg.preX, y: start.y + cfg.preY };
+        return c.opening ? morphWinOf(k) : morphRestOf(k, morphRest());
+      }
+
+      function startMorph(opening) {
+        const r = morphRest();
+        MORPH_KEYS.forEach(k => {
+          const c = S.mo.c[k];
+          const start = opening ? morphRestOf(k, r) : morphWinOf(k);
+          if (!S.mo.on) Object.assign(c, { x: start.x, y: start.y, vx: 0, vy: 0 });
+          // Если угол уже в пути, отход пропускаем: иначе он дёрнется назад к началу
+          c.skipPre = Math.hypot(c.x - start.x, c.y - start.y) > 2;
+          c.t = 0;
+          c.opening = opening;
+        });
+        S.mo.opening = opening;
+        S.mo.openDone = false;
+        S.mo.on = true;
+        ensureRunning();
+      }
+
+      // Все углы дошли до цели: окно — до окна, закрытие — до покоя.
+      function morphIdle() {
+        if (!S.mo.on) return true;
+        const r = morphRest();
+        return MORPH_KEYS.every(k => {
+          const cfg = CFG.morph[k];
+          const c = S.mo.c[k];
+          if (c.t < (c.opening ? cfg.delay : CFG.closeDelay[k]) + cfg.preMs) return false;
+          const p = c.opening ? morphWinOf(k) : morphRestOf(k, r);
+          return Math.abs(c.x - p.x) < 0.3 && Math.abs(c.y - p.y) < 0.3 &&
+                 Math.abs(c.vx) < 2 && Math.abs(c.vy) < 2;
+        });
+      }
+
+      function stepMorph(dt) {
+        if (!S.mo.on) return;
+        const m = CFG.morph;
+        MORPH_KEYS.forEach(k => {
+          const c = S.mo.c[k];
+          c.t += dt * 1000;
+          const tgt = morphGoal(k, c);
+          // После открытия углы окна идут обычной пружиной menuHandle (фон ведёт), а не параметрами открытия.
+          const live = S.mo.opening && S.mo.openDone;
+          const sx = live ? sp(CFG.menuHandle) : sp(m[k].x);
+          const sy = live ? sp(CFG.menuHandle) : sp(m[k].y);
+          c.vx += (sx.k * (tgt.x - c.x) - sx.c * c.vx) * dt;
+          c.x += c.vx * dt;
+          c.vy += (sy.k * (tgt.y - c.y) - sy.c * c.vy) * dt;
+          c.y += c.vy * dt;
+        });
+        if (S.mo.opening && !S.mo.openDone && morphIdle()) S.mo.openDone = true;
+        const cs = sp(CFG.menuCut);
+        S.cutV += (cs.k * (S.cutT - S.cut) - cs.c * S.cutV) * dt;
+        S.cut += S.cutV * dt;
+        // Содержимое догоняет срез фона своей пружиной; отстаёт не дальше нижней грани окна.
+        const cc = sp({ k: CFG.menuHandle.contentK, z: CFG.menuHandle.contentZ });
+        S.cutCV += (cc.k * (S.cut - S.cutC) - cc.c * S.cutCV) * dt;
+        S.cutC = clamp(S.cutC + S.cutCV * dt, -CFG.menuHandle.openAt, CFG.menuH - CFG.menuMinH);
+        if (!S.mo.opening && morphIdle()) S.mo.on = false;
+      }
+
+      // Фигура из четырёх углов: прямые рёбра и скругление каждого угла с его радиусом.
+      function morphPathD() {
+        const pts = MORPH_KEYS.map(k => ({ x: S.mo.c[k].x, y: S.mo.c[k].y }));
+        const n = pts.length;
+        const corners = [];
+        for (let i = 0; i < n; i++) {
+          const P = pts[i];
+          const A = pts[(i + n - 1) % n];
+          const B = pts[(i + 1) % n];
+          const la = Math.max(1e-6, Math.hypot(A.x - P.x, A.y - P.y));
+          const lb = Math.max(1e-6, Math.hypot(B.x - P.x, B.y - P.y));
+          const r = Math.min(Math.max(0, S.mo.r[MORPH_KEYS[i]]), la / 2, lb / 2);
+          corners.push({
+            P,
+            a: { x: P.x + (A.x - P.x) / la * r, y: P.y + (A.y - P.y) / la * r },
+            b: { x: P.x + (B.x - P.x) / lb * r, y: P.y + (B.y - P.y) / lb * r },
+          });
+        }
+        const f = p => `${p.x.toFixed(2)} ${p.y.toFixed(2)}`;
+        let d = `M${f(corners[n - 1].b)}`;
+        corners.forEach(c => { d += ` L${f(c.a)} Q${f(c.P)} ${f(c.b)}`; });
+        return d + ' Z';
+      }
+
+      // ---------- Физика ----------
+      function stepBody(dt) {
+        const s = sp(S.mode === 'drag' ? CFG.bodyDrag : CFG.bodyMove);
+        const a = s.k * (S.bodyTarget - S.body) - s.c * S.bodyV +
+                  wallAccel(S.body, S.bodyV, minX, maxX);
+        S.bodyV = clamp(S.bodyV + a * dt, -CFG.maxSpeed, CFG.maxSpeed);
+        S.body += S.bodyV * dt;
+      }
+
+      function stepEdges(dt) {
+        if (!CFG.stretchOn) {
+          // Без растяжения: края жёстко следуют за телом, отскок даёт пружина тела.
+          S.L = S.body; S.R = S.body + tabW;
+          S.vL = S.vR = S.bodyV;
+          return;
+        }
+        // Вес направления плавно меняется от скорости тела: роли краёв переключаются
+        // постепенно, без скачков жёсткости на развороте.
+        const wRight = 0.5 + 0.5 * clamp(S.bodyV / Math.max(1, CFG.dirThreshold), -1, 1);
+        // Вправо: левый край — хвост (мягче), правый — ведущий (жёстче). Влево — наоборот.
+        const sl = blendSpring(CFG.leadEdge, CFG.trailEdge, wRight);
+        const sr = blendSpring(CFG.trailEdge, CFG.leadEdge, wRight);
+
+        let aL = sl.k * (S.body - S.L) - sl.c * S.vL + wallAccel(S.L, S.vL, minX, Infinity);
+        let aR = sr.k * (S.body + tabW - S.R) - sr.c * S.vR +
+                 wallAccel(S.R, S.vR, -Infinity, maxX + tabW);
+
+        // Ограничитель ширины: мягко держит растяжение и не даёт краям перевернуться.
+        const w = S.R - S.L;
+        const maxW = tabW + CFG.maxStretch;
+        if (w > maxW || w < CFG.minWidth) {
+          const limit = w > maxW ? maxW : CFG.minWidth;
+          const T = sp(CFG.tether);
+          const f = T.k * (w - limit) + T.c * (S.vR - S.vL);
+          aL += f;
+          aR -= f;
+        }
+
+        S.vL += aL * dt;
+        S.L += S.vL * dt;
+        S.vR += aR * dt;
+        S.R += S.vR * dt;
+      }
+
+      // Морф нажатия: одна пружина на всё (остров, плоскость, индикатор), отскок регулируется ζ.
+      function stepPress(dt) {
+        const s = sp(S.pTarget > S.p ? CFG.pressSpring : CFG.releaseSpring);
+        S.vp += (s.k * (S.pTarget - S.p) - s.c * S.vp) * dt;
+        S.p += S.vp * dt;
+      }
+
+      // Цель сдвига: смещение индикатора от центра острова и его скорость. Только во время перетаскивания.
+      function driftTarget() {
+        if (!drag || !drag.moved) return 0;
+        const center = (S.L + S.R) / 2;
+        const pos = CFG.driftRatio * (center - IW / 2);
+        const vel = CFG.driftVelocity * S.bodyV;
+        return clamp(pos + vel, -CFG.driftMax, CFG.driftMax);
+      }
+
+      function stepDrift(dt) {
+        S.dxTarget = driftTarget();
+        const s = sp(drag && drag.moved ? CFG.driftSpring : CFG.driftReleaseSpring);
+        S.vdx += (s.k * (S.dxTarget - S.dx) - s.c * S.vdx) * dt;
+        S.dx += S.vdx * dt;
+      }
+
+      // ---------- Ползунок: физика ----------
+      function stepSlider(dt) {
+        const playingNow = CFG.sliderOn && CFG.sliderPlaying && !S.sDrag && !reduced && !menuOpen;
+        if (playingNow) {
+          // Воспроизведение: прогресс идёт, волна бежит по дорожке
+          S.progress = (S.progress + CFG.sliderRate / 100 * dt) % 1;
+          S.phase = (S.phase + 2 * Math.PI * CFG.waveSpeed / Math.max(1, CFG.waveLen) * dt) % (2 * Math.PI);
+        }
+        // Волна появляется при воспроизведении и становится плоской при паузе или перетаскивании
+        const sw = sp(CFG.waveSpring);
+        S.vwv += (sw.k * ((playingNow ? 1 : 0) - S.wv) - sw.c * S.vwv) * dt;
+        S.wv += S.vwv * dt;
+        // Кружок превращается в линию при перетаскивании
+        const sq = sp(CFG.squeezeSpring);
+        S.vsq += (sq.k * ((S.sDrag ? 1 : 0) - S.sq) - sq.c * S.vsq) * dt;
+        S.sq += S.vsq * dt;
+        // Кружок догоняет прогресс пружиной
+        const th = sp(CFG.thumbSpring);
+        const target = clamp(S.progress, 0, 1) * sliderGeom().L;
+        S.vthumb += (th.k * (target - S.thumb) - th.c * S.vthumb) * dt;
+        S.thumb += S.vthumb * dt;
+      }
+
+      function stepDecor(dt) {
+        [S.panel, S.vPanel] = step2(S.panel, S.vPanel, S.tPanel, sp(CFG.panelSpring), dt);
+        [S.plus, S.vPlus] = step2(S.plus, S.vPlus, S.tPlus, sp(CFG.plusSpring), dt);
+      }
+
+      function isSettled() {
+        const near = (a, b) => Math.abs(a - b) < CFG.settlePos;
+        const still = v => Math.abs(v) < CFG.settleVel;
+        const unit = (a, b) => Math.abs(a - b) < CFG.pressSettle;
+        const unitStill = v => Math.abs(v) < CFG.pressSettle * 10;
+        const playingNow = CFG.sliderOn && CFG.sliderPlaying && !S.sDrag && !reduced && !menuOpen;
+        const g = sliderGeom();
+        return near(S.body, S.bodyTarget) && still(S.bodyV) &&
+          near(S.L, S.body) && near(S.R, S.body + tabW) && still(S.vL) && still(S.vR) &&
+          near(S.panel, S.tPanel) && still(S.vPanel) &&
+          near(S.plus, S.tPlus) && still(S.vPlus) &&
+          unit(S.pTarget, S.p) && unitStill(S.vp) &&
+          near(S.dx, S.dxTarget) && still(S.vdx) &&
+          morphIdle() && Math.abs(S.cutT - S.cut) < 0.05 && Math.abs(S.cutV) < 0.5 && Math.abs(S.cut - S.cutC) < 0.05 && Math.abs(S.cutCV) < 0.5 && Math.abs(S.pullP - S.pullT) < 0.05 && Math.abs(S.pullV) < 0.5 && !playingNow && unit(S.wv, 0) && unitStill(S.vwv) &&
+          unit(S.sq, S.sDrag ? 1 : 0) && unitStill(S.vsq) &&
+          near(S.thumb, clamp(S.progress, 0, 1) * g.L) && still(S.vthumb);
+      }
+
+      // ---------- Ползунок: отрисовка ----------
+      // Дорожка и кружок лежат на линии base; верхняя грань острова — та же волна, но ниже на sliderGap.
+      function paintSlider() {
+        const v = CFG.sliderOn ? Math.max(0, 1 - S.p) : 0;   // присутствие: прячется при прижатии
+        const g = sliderGeom();
+        const base = CFG.earDepth / 100 * IH - (CFG.sliderGap + CFG.sliderTrackH / 2);
+        const thumbX = g.x0 + S.thumb;
+        const yAt = x => base + waveAt(x, g, thumbX);
+        const tw = Math.max(1, lerp(CFG.sliderThumbD, CFG.sliderLineW, S.sq)) * v;
+        const th = Math.max(1, lerp(CFG.sliderThumbD, CFG.sliderLineH, S.sq)) * v;
+        const trackW = CFG.sliderTrackH * v;
+        const half = tw / 2 + CFG.sliderThumbGap;
+
+        // Активная часть — волна от начала дорожки до кружка
+        let dA = '';
+        const aEnd = thumbX - half;
+        if (v > 0 && aEnd > g.x0) {
+          const n = Math.max(1, Math.ceil((aEnd - g.x0) / 2));
+          for (let i = 0; i <= n; i++) {
+            const x = g.x0 + (aEnd - g.x0) * i / n;
+            dA += `${i ? 'L' : 'M'}${x.toFixed(2)} ${yAt(x).toFixed(2)} `;
+          }
+        }
+        // Неактивная часть — ровная линия справа от кружка
+        const iStart = thumbX + half;
+        const dI = v > 0 && g.x1 > iStart
+          ? `M${iStart.toFixed(2)} ${base.toFixed(2)} L${g.x1.toFixed(2)} ${base.toFixed(2)}`
+          : '';
+        trackActive.setAttribute('d', dA);
+        trackInactive.setAttribute('d', dI);
+        trackActive.setAttribute('stroke-width', trackW.toFixed(2));
+        trackInactive.setAttribute('stroke-width', trackW.toFixed(2));
+
+        // Кружок (или линия при перетаскивании)
+        const ty = yAt(thumbX);
+        sliderThumb.setAttribute('x', (thumbX - tw / 2).toFixed(2));
+        sliderThumb.setAttribute('y', (ty - th / 2).toFixed(2));
+        sliderThumb.setAttribute('width', tw.toFixed(2));
+        sliderThumb.setAttribute('height', th.toFixed(2));
+        sliderThumb.setAttribute('rx', (Math.min(tw, th) / 2).toFixed(2));
+
+        // Зона нажатия
+        sliderHit.setAttribute('x', (g.x0 - 8).toFixed(2));
+        sliderHit.setAttribute('y', (base - CFG.sliderHit / 2).toFixed(2));
+        sliderHit.setAttribute('width', (g.L + 16).toFixed(2));
+        sliderHit.setAttribute('height', CFG.sliderHit.toFixed(2));
+        sliderHit.setAttribute('aria-valuenow', String(Math.round(clamp(S.progress, 0, 1) * 100)));
+        sliderHit.style.pointerEvents = v > 0.5 ? 'all' : 'none';
+      }
+
+      function paint() {
+        // Масштаб и подъём острова зависят от морфа.
+        S.scale = 1 + (CFG.islandScale - 1) * S.p;
+        const lift = CFG.islandLift * S.p;
+        island.style.transform =
+          `translate3d(${S.dx.toFixed(2)}px, ${(-lift).toFixed(2)}px, 0) scale(${S.scale.toFixed(4)})`;
+        shapePath.setAttribute('d', buildShape(S.p));
+
+        const lo = Math.min(S.L, S.R);
+        const hi = Math.max(S.L, S.R);
+        indicator.style.transform = `translate3d(${lo.toFixed(2)}px, 0, 0) scale(${hd.ig.x.toFixed(4)})`;
+        indicator.style.width = `${Math.max(2, hi - lo).toFixed(2)}px`;
+        indicator.style.top = `${(indTop - S.pullP).toFixed(2)}px`;
+        indicator.style.height = `${Math.max(2, indH + S.pullP * (1 - CFG.pullLift)).toFixed(2)}px`;
+
+        // Скругления зависят от положения: у края плавно меняются, когда край проходит середину перехода.
+        const cap = indH > 0 ? indH / 2 : Infinity;
+        const tL = clamp((leftMid + CFG.radiusRamp / 2 - lo) / CFG.radiusRamp, 0, 1);
+        const tR = clamp((hi - (rightMid - CFG.radiusRamp / 2)) / CFG.radiusRamp, 0, 1);
+        const lr = Math.min(cap, cornerRadius(tL));
+        const rr = Math.min(cap, cornerRadius(tR));
+        // У края верхний угол индикатора при нажатии становится как у плоскости.
+        const top = Math.min(cap, CFG.indicatorSync ? CFG.planeR : CFG.indTopR);
+        // Вес «у края»: 1 — тайл на крайней вкладке, 0 — тайл у середины перехода.
+        const endL = clamp((leftMid - lo) / Math.max(1, leftMid - minX), 0, 1);
+        const endR = clamp((hi - rightMid) / Math.max(1, maxX + tabW - rightMid), 0, 1);
+        const pw = clamp(S.p, 0, 1);
+        const tlr = lr + (top - lr) * pw * endL;
+        const trr = rr + (top - rr) * pw * endR;
+        indicator.style.borderRadius =
+          `${tlr.toFixed(2)}px ${trr.toFixed(2)}px ${rr.toFixed(2)}px ${lr.toFixed(2)}px`;
+
+        indRad = { tl: tlr, tr: trr, br: rr, bl: lr };
+        // Морф углов: пока он идёт или окно открыто, индикатор скрыт, вместо него рисуется фигура из четырёх углов.
+        indicator.style.opacity = S.mo.on ? '0' : '';
+        morphSvg.style.display = S.mo.on ? 'block' : 'none';
+        if (S.mo.on) {
+          // Скругления: от скруглений индикатора к скруглениям окна, по пути каждого угла
+          const rest = morphRest();
+          let prSum = 0;
+          MORPH_KEYS.forEach(k => {
+            const rp = morphRestOf(k, rest), wp = morphWinOf(k), c = S.mo.c[k];
+            const span = Math.hypot(wp.x - rp.x, wp.y - rp.y) || 1;
+            const pr = clamp(Math.hypot(c.x - rp.x, c.y - rp.y) / span, 0, 1);
+            prSum += pr;
+            S.mo.r[k] = lerp(indRad[k], morphWinR(k), pr);
+          });
+          morphPath.setAttribute('d', morphPathD());
+          morphPath.style.fill = mixHex(CFG.colors.yellow, CFG.colors.page, clamp(-S.cut / Math.max(1, CFG.menuHandle.whiteAt), 0, 1));
+          const vy = morphTop();
+          morphSvg.style.top = `${vy}px`;
+          morphSvg.style.height = `${IH - vy}px`;
+          morphSvg.setAttribute('viewBox', `0 ${vy} ${IW} ${IH - vy}`);
+          if (!menuDetached) {
+            islandMenu.style.top = `${vy}px`;
+            islandMenu.style.height = `${IH - vy}px`;
+            menuBody.style.top = `${-CFG.menuGap - CFG.menuH - vy + S.cutC}px`;
+            menuBody.style.height = `${CFG.menuH - S.cutC}px`;
+            menuBody.style.width = `${IW}px`;
+            menuBody.style.paddingTop = `${CFG.menuPadTop}px`;
+          const mh = islandMenu.querySelector('.menu-handle');
+          if (mh) {
+            mh.style.top = `${(-CFG.menuGap - CFG.menuH - vy - CFG.menuHandle.zone).toFixed(2)}px`;
+            mh.style.height = `${CFG.menuHandle.zone}px`;
+            // Полоска едет по верхней грани окна: центр — середина верхнего ребра, наклон — как у ребра
+            const tl = S.mo.c.tl, tr = S.mo.c.tr;
+            const mx = (tl.x + tr.x) / 2, my = (tl.y + tr.y) / 2;
+            const ang = Math.atan2(tr.y - tl.y, tr.x - tl.x) * 180 / Math.PI;
+            mh.style.transform = `translate(${(mx - IW / 2).toFixed(2)}px, ${(my + CFG.menuGap + CFG.menuH).toFixed(2)}px) rotate(${ang.toFixed(3)}deg)`;
+            // Появляется из прозрачности, как только верхние углы начинают движение
+            const wyNat = -CFG.menuGap - CFG.menuH;
+            const rest0 = morphRest();
+            const topPr = ['tl', 'tr'].map(k => {
+              const rp = morphRestOf(k, rest0), c = S.mo.c[k];
+              const span = Math.hypot((morphIsRight(k) ? IW : 0) - rp.x, wyNat - rp.y) || 1;
+              return clamp(Math.hypot(c.x - rp.x, c.y - rp.y) / span, 0, 1);
+            });
+            mh.style.opacity = clamp((topPr[0] + topPr[1]) / 2 / 0.25, 0, 1).toFixed(3);
+          }
+            menuBody.style.opacity = clamp((prSum / MORPH_KEYS.length - 0.6) / 0.4, 0, 1).toFixed(3);
+          }
+        } else {
+          morphSvg.style.top = '';
+          morphSvg.style.height = '';
+          morphSvg.setAttribute('viewBox', `0 0 ${IW} ${IH}`);
+        }
+        island.classList.toggle('menu-live', S.mo.on);
+
+        actionPanel.style.transform = `translateY(${S.panel}%)`;
+        actionFrame.style.transform = `translateY(${S.plus}%)`;
+        paintSlider();
+      }
+
+      function tick(now) {
+        rafId = 0;
+        if (!lastT) lastT = now;
+        const elapsed = Math.min((now - lastT) / 1000, 1 / 30);
+        lastT = now;
+        const steps = Math.max(1, Math.ceil(elapsed * CFG.substeps));
+        const dt = elapsed / steps;
+        for (let i = 0; i < steps; i++) {
+          stepBody(dt);
+          stepEdges(dt);
+          stepPress(dt);
+          stepDrift(dt);
+          stepSlider(dt);
+          stepDecor(dt);
+          stepMorph(dt);
+          stepPull(dt);
+        }
+        updateOcclusion();
+        paint();
+        if (isSettled()) {
+          lastT = 0;
+          return;
+        }
+        rafId = requestAnimationFrame(tick);
+      }
+
+      function ensureRunning() {
+        if (rafId) return;
+        lastT = 0;
+        rafId = requestAnimationFrame(tick);
+      }
+
+      // Мгновенная установка (resize, reduced-motion, изменение геометрии).
+      function placeAt(x) {
+        if (!(drag && drag.moved)) { S.dx = 0; S.vdx = 0; }
+        S.mode = 'move';
+        S.body = S.bodyTarget = x;
+        S.bodyV = 0;
+        S.L = x;
+        S.R = x + tabW;
+        S.vL = 0;
+        S.vR = 0;
+        updateOcclusion(true);
+        paint();
+      }
+
+      function selectTab(index) {
+        setActive(index);
+        S.mode = 'move';
+        S.bodyTarget = slots[index].x;
+        if (reduced) {
+          placeAt(slots[index].x);
+          return;
+        }
+        ensureRunning();
+      }
+
+      // ---------- Нажатие: морф острова ----------
+      function setPressed(on) {
+        S.pTarget = on ? 1 : 0;
+        if (reduced) {
+          S.p = S.pTarget;
+          S.vp = 0;
+          paint();
+          return;
+        }
+        ensureRunning();
+      }
+
+      function beginPress(e) {
+        if (CFG.pressOnlyIndicator && !pointInTile(e.clientX, e.clientY)) return;
+        pressPointer = e.pointerId;
+        clearTimeout(pressTimer);
+        if (CFG.pressDelay > 0) pressTimer = setTimeout(() => setPressed(true), CFG.pressDelay);
+        else setPressed(true);
+      }
+
+      function endPress(e) {
+        if (pressPointer === null || e.pointerId !== pressPointer) return;
+        pressPointer = null;
+        clearTimeout(pressTimer);
+        setPressed(false);
+      }
+
+      // ---------- Указатель ----------
+      const pointInTile = (x, y) => {
+        const r = indicator.getBoundingClientRect();
+        const pad = CFG.hitPad;
+        return x >= r.left - pad && x <= r.right + pad && y >= r.top - pad && y <= r.bottom + pad;
+      };
+      // Переводим экранные координаты в локальные острова: учитываем текущий масштаб.
+      const localX = x => (x - island.getBoundingClientRect().left + S.dx) / S.scale;
+
+      island.addEventListener('pointerdown', e => {
+        justDragged = false;
+        if (e.button !== 0 || !e.isPrimary) return;
+        if (menuOpen) return;
+        beginPress(e);
+        if (actionButton.contains(e.target)) return;
+        if (!pointInTile(e.clientX, e.clientY)) return;
+        e.preventDefault();
+        drag = {
+          id: e.pointerId,
+          // Захват считаем от видимого левого края, а не от тела: иначе тайл прыгает на первом движении.
+          grab: localX(e.clientX) - Math.min(S.L, S.R),
+          x0: e.clientX,
+          y0: e.clientY,
+          moved: false,
+        };
+        island.classList.add('is-dragging');
+      });
+
+      window.addEventListener('pointermove', e => {
+        if (!drag || e.pointerId !== drag.id) return;
+        if (!drag.moved) {
+          if (Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) < CFG.dragThreshold) return;
+          drag.moved = true;
+          // Тянем вверх заметно сильнее, чем в сторону: это растяжение, а не перетаскивание
+          drag.pull = (drag.y0 - e.clientY) > Math.abs(e.clientX - drag.x0) * CFG.pullBias;
+          if (!drag.pull) {
+            S.mode = 'drag';
+            try { island.setPointerCapture(e.pointerId); } catch (_) {}
+          }
+        }
+        e.preventDefault();
+
+        if (drag.pull) {
+          const up = Math.max(0, drag.y0 - e.clientY);
+          if (!drag.opened && up >= CFG.pullOpen) {
+            drag.opened = true;
+            S.pullT = 0;
+            if (!menuOpen) toggleIslandMenu(true);
+          } else if (!drag.opened) {
+            S.pullT = pullStretch(up);
+          }
+          ensureRunning();
+          return;
+        }
+
+        const target = clamp(localX(e.clientX) - drag.grab, minX, maxX);
+        S.bodyTarget = target;
+        setActive(nearestIndex(target));
+
+        if (reduced) {
+          placeAt(target);
+          S.dx = driftTarget();
+          paint();
+          return;
+        }
+        ensureRunning();
+      }, { passive: false });
+
+      function endDrag(e) {
+        if (!drag || e.pointerId !== drag.id) return;
+        const moved = drag.moved, pull = drag.pull;
+        drag = null;
+        island.classList.remove('is-dragging');
+        try { island.releasePointerCapture(e.pointerId); } catch (_) {}
+        if (!moved) return;
+        justDragged = true;
+        if (pull) {
+          S.pullT = 0;          // отпустили: индикатор возвращается на место с отскоком
+          ensureRunning();
+          return;
+        }
+        selectTab(nearestIndex(S.bodyTarget));
+      }
+      window.addEventListener('pointerup', e => { endDrag(e); endPress(e); });
+      window.addEventListener('pointercancel', e => { endDrag(e); endPress(e); });
+
+      // ---------- Ползунок: перетаскивание и клавиатура ----------
+      let sliderDrag = null;
+      const progressFromX = x => {
+        const g = sliderGeom();
+        S.progress = clamp((x - g.x0) / g.L, 0, 1);
+      };
+      sliderHit.addEventListener('pointerdown', e => {
+        if (e.button !== 0 || !e.isPrimary) return;
+        e.stopPropagation();          // не запускать морф острова и перетаскивание тайла
+        e.preventDefault();
+        sliderDrag = { id: e.pointerId };
+        S.sDrag = true;
+        try { sliderHit.setPointerCapture(e.pointerId); } catch (_) {}
+        progressFromX(localX(e.clientX));
+        ensureRunning();
+      });
+      window.addEventListener('pointermove', e => {
+        if (!sliderDrag || e.pointerId !== sliderDrag.id) return;
+        progressFromX(localX(e.clientX));
+        ensureRunning();
+      });
+      const endSliderDrag = e => {
+        if (!sliderDrag || e.pointerId !== sliderDrag.id) return;
+        sliderDrag = null;
+        S.sDrag = false;
+        ensureRunning();
+      };
+      window.addEventListener('pointerup', endSliderDrag);
+      window.addEventListener('pointercancel', endSliderDrag);
+      sliderHit.addEventListener('keydown', e => {
+        const step = { ArrowLeft: -0.01, ArrowDown: -0.01, ArrowRight: 0.01, ArrowUp: 0.01 }[e.key];
+        if (step !== undefined) S.progress = clamp(S.progress + step, 0, 1);
+        else if (e.key === 'Home') S.progress = 0;
+        else if (e.key === 'End') S.progress = 1;
+        else return;
+        e.preventDefault();
+        ensureRunning();
+      });
+
+      island.addEventListener('pointermove', e => {
+        if (drag || e.pointerType !== 'mouse') return;
+        island.classList.toggle('is-grabbable', pointInTile(e.clientX, e.clientY));
+      });
+      island.addEventListener('pointerleave', () => island.classList.remove('is-grabbable'));
+
+      // Click после перетаскивания гасим флагом; флаг сбрасывается при следующем pointerdown.
+      island.addEventListener('click', e => {
+        if (!justDragged) return;
+        justDragged = false;
+        e.preventDefault();
+        e.stopPropagation();
+      }, true);
+
+      tabs.forEach((tab, i) => tab.addEventListener('click', () => {
+        // Повторное нажатие на вкладку «домик» (крайнюю левую), на которой уже стоит индикатор, — морф углов.
+        const onIt = i === 0 && tab.dataset.tab === activeId &&
+                     Math.abs(S.bodyTarget - slots[i].x) < 0.5 && S.mode === 'move';
+        if (onIt) { toggleIslandMenu(); return; }
+        if (menuOpen) toggleIslandMenu(false);
+        selectTab(i);
+      }));
+
+      tabs.forEach((tab, i) => tab.addEventListener('keydown', e => {
+        const targets = { ArrowLeft: i - 1, ArrowRight: i + 1, Home: 0, End: tabs.length - 1 };
+        if (!(e.key in targets)) return;
+        e.preventDefault();
+        const next = clamp(targets[e.key], 0, tabs.length - 1);
+        tabs[next].focus();
+        selectTab(next);
+      }));
+
+      actionButton.addEventListener('click', () => {
+        if (menuOpen) toggleIslandMenu(false);
+        actionGlyph.animate(
+          [{ transform: 'scale(1)' }, { transform: `scale(${CFG.pressScale})` }, { transform: 'scale(1)' }],
+          { duration: CFG.pressMs, easing: 'cubic-bezier(.2,.8,.2,1)' }
+        );
+      });
+
+      // ---------- Применение параметров ----------
+      function applyCss() {
+        const root = document.documentElement.style;
+        const c = CFG.colors;
+        root.setProperty('--page', c.page);
+        root.setProperty('--ink', c.ink);
+        root.setProperty('--yellow', c.yellow);
+        root.setProperty('--green', c.green);
+        root.setProperty('--green-hover', c.greenHover);
+        root.setProperty('--slider-active', c.sliderActive);
+        root.setProperty('--slider-inactive', c.sliderInactive);
+        root.setProperty('--slider-thumb', c.sliderThumb);
+        root.setProperty('--menu-radius', `${CFG.planeR}px`);
+        root.setProperty('--icon-size', `${CFG.iconSize}px`);
+        root.setProperty('--handle-zone', `${CFG.menuHandle.zone}px`);
+        root.setProperty('--handle-color', CFG.menuHandle.color);
+        root.setProperty('--menu-pad-top', `${CFG.menuPadTop}px`);
+        root.setProperty('--handle-zone', `${CFG.menuHandle.zone}px`);
+        root.setProperty('--tab-height', `${CFG.tabHeight}%`);
+        root.setProperty('--action-width', `${CFG.actionWidth}%`);
+        root.setProperty('--action-radius', `${CFG.actionRadius}px`);
+        root.setProperty('--hover-opacity', String(CFG.hoverOpacity));
+        root.setProperty('--press-scale', String(CFG.pressScale));
+        const m = CFG.ms;
+        const hexA = (h, a) => { const n = parseInt(h.slice(1), 16); return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`; };
+        root.setProperty('--ms-h', `${m.height}px`);
+        root.setProperty('--ms-track-h', `${m.trackH}px`);
+        root.setProperty('--ms-gap', `${m.gap}px`);
+        root.setProperty('--ms-outer-r', `${m.outerR}px`);
+        root.setProperty('--ms-inner-r', `${m.innerR}px`);
+        root.setProperty('--ms-handle-w', `${m.handleW}px`);
+        root.setProperty('--ms-handle-w-active', `${m.handleWActive}px`);
+        root.setProperty('--ms-handle-h', `${m.handleH}px`);
+        root.setProperty('--ms-handle-r', `${m.handleR}px`);
+        root.setProperty('--ms-dot-d', `${m.dotOn ? m.dotD : 0}px`);
+        root.setProperty('--ms-dot-inset', `${m.dotInset}px`);
+        root.setProperty('--ms-active', m.active);
+        root.setProperty('--ms-handle', m.handle);
+        root.setProperty('--ms-inactive', hexA(m.inactive, m.inactiveA));
+        root.setProperty('--ms-dot', m.dot);
+        root.setProperty('--ms-bubble-bg', m.bubbleBg);
+        root.setProperty('--ms-bubble-text', m.bubbleText);
+        root.setProperty('--ms-bubble-on', m.bubble ? '1' : '0');
+        const q = CFG.mt;
+        root.setProperty('--mt-pill', q.pillColor);
+        root.setProperty('--mt-pill-text', q.pillText);
+        root.setProperty('--mt-pill-r', `${q.pillR}px`);
+        root.setProperty('--mt-line', q.lineColor);
+        root.setProperty('--mt-line-h', `${q.lineH}px`);
+        root.setProperty('--mt-text', q.textColor);
+        root.setProperty('--mt-op', String(q.opacity));
+        root.setProperty('--mt-op-hover', String(q.opacityHover));
+        root.setProperty('--mt-text-ms', `${q.textMs}ms`);
+        root.setProperty('--mt-fs', `${q.fontSize}px`);
+        root.setProperty('--mt-sub-fs', `${q.subFontSize}px`);
+        root.setProperty('--mt-pad-x', `${q.padX}px`);
+        root.setProperty('--mt-pad-y', `${q.padY}px`);
+        root.setProperty('--mt-sub-pad-x', `${q.subPadX}px`);
+        root.setProperty('--mt-sub-pad-y', `${q.subPadY}px`);
+        root.setProperty('--mt-gap', `${q.gap}px`);
+        island.style.width = `min(${CFG.islandWidth}px, calc(100vw - 48px))`;
+        island.style.height = `${CFG.islandHeight}px`;
+      }
+
+      function refreshGeometry() {
+        applyCss();
+        layout();
+        const index = Math.max(0, tabs.findIndex(t => t.dataset.tab === activeId));
+        placeAt(slots[index].x);
+      }
+
+      function onChange(item) {
+        if (item.path === 'base.cascade') writeCascade();
+        if (item.path === 'base.lash') writeLash();
+        if (item.path === 'base.cascade' || item.path === 'base.lash') syncFields();
+        if (item.path.startsWith('ms.')) sliderKicks.forEach(k => k());
+        rebuild();
+        applyCss();
+        if (item.geom) refreshGeometry();
+        ensureRunning();
+        save();
+        if (item.path.startsWith('menuHandle.')) hdKick();
+        if (item.path.startsWith('mt.')) { catInd.kick(); subInd.kick(); }
+      }
+
+      // ---------- Схема панели ----------
+      const MORPH_CORNERS = [
+        ['tr', 'верхний правый угол'],
+        ['tl', 'верхний левый угол'],
+        ['br', 'нижний правый угол'],
+        ['bl', 'нижний левый угол'],
+      ];
+      const morphGroups = [
+        { title: 'Морф углов: общие (клик по домику)', open: true, items: [
+          { path: 'morph.on', label: 'Морф по нажатию на активный домик', bool: true },
+        ]},
+        ...MORPH_CORNERS.map(([k, name]) => ({ title: 'Морф: ' + name, items: [
+          { path: `morph.${k}.delay`, label: 'Задержка старта, мс', min: 0, max: 600, step: 5 },
+          { path: `morph.${k}.preX`, label: 'Отход в начале по X, px (+ вправо)', min: -60, max: 60, step: 0.5 },
+          { path: `morph.${k}.preY`, label: 'Отход в начале по Y, px (+ вниз)', min: -60, max: 60, step: 0.5 },
+          { path: `morph.${k}.preMs`, label: 'Длительность отхода, мс', min: 0, max: 400, step: 5 },
+          { path: `morph.${k}.x.k`, label: 'Пружина по X: жёсткость', min: 50, max: 1500, step: 10 },
+          { path: `morph.${k}.x.z`, label: 'Пружина по X: затухание (ζ)', min: 0.05, max: 1.5, step: 0.01 },
+          { path: `morph.${k}.y.k`, label: 'Пружина по Y: жёсткость', min: 50, max: 1500, step: 10 },
+          { path: `morph.${k}.y.z`, label: 'Пружина по Y: затухание (ζ)', min: 0.05, max: 1.5, step: 0.01 },
+          { path: `morph.${k}.r`, label: 'Радиус угла, px', min: 0, max: 30, step: 0.5 },
+        ]})),
+      ];
+
+      const SCHEMA = [
+        { title: 'Переход по нажатию', items: [
+          { path: 'bodyMove.k', label: 'Жёсткость тела', min: 50, max: 3000, step: 10 },
+          { path: 'bodyMove.z', label: 'Затухание тела (ζ)', min: 0.1, max: 1.5, step: 0.01 },
+          { path: 'maxSpeed', label: 'Макс. скорость, px/s', min: 200, max: 4000, step: 10 },
+          { path: 'dirThreshold', label: 'Ширина перехода направления, px/s', min: 0, max: 400, step: 1 },
+          { path: 'pressScale', label: 'Масштаб глифа плюса при нажатии', min: 0.5, max: 1, step: 0.01 },
+          { path: 'pressMs', label: 'Длительность нажатия плюса, мс', min: 60, max: 600, step: 10 },
+        ]},
+        { title: 'Нажатие: морф острова', open: true, items: [
+          { path: 'islandScale', label: 'Уменьшение острова (масштаб)', min: 0.8, max: 1, step: 0.005 },
+          { path: 'islandLift', label: 'Подъём острова, px', min: 0, max: 20, step: 0.5 },
+          { path: 'pressDelay', label: 'Задержка перед морфом, мс', min: 0, max: 300, step: 5 },
+          { path: 'pressSpring.k', label: 'Жёсткость при нажатии', min: 50, max: 1500, step: 10 },
+          { path: 'pressSpring.z', label: 'Затухание при нажатии (ζ)', min: 0.05, max: 1.5, step: 0.01 },
+          { path: 'releaseSpring.k', label: 'Жёсткость при отпускании', min: 50, max: 1500, step: 10 },
+          { path: 'releaseSpring.z', label: 'Затухание при отпускании (ζ)', min: 0.05, max: 1.5, step: 0.01 },
+        ]},
+        { title: 'Плоскость и углы (прижатый вид)', open: true, items: [
+          { path: 'planeY', label: 'Высота плоскости, %', min: 0, max: 80, step: 0.1 },
+          { path: 'planeR', label: 'Радиус углов плоскости, px', min: 0, max: 30, step: 0.5 },
+          { path: 'planeK', label: 'Округлость углов (меньше = квадратнее)', min: 0.01, max: 0.6, step: 0.01 },
+          { path: 'indicatorSync', label: 'Угол индикатора = углу плоскости', bool: true },
+        ]},
+        { title: 'Ползунок на верхней грани', open: true, items: [
+          { path: 'sliderOn', label: 'Показывать ползунок', bool: true },
+          { path: 'sliderPlaying', label: 'Воспроизведение (волна идёт)', bool: true },
+          { path: 'sliderProgress', label: 'Прогресс', min: 0, max: 1, step: 0.001 },
+          { path: 'sliderRate', label: 'Скорость прогресса, %/с', min: 0, max: 20, step: 0.1 },
+          { path: 'sliderGap', label: 'Отход верхней грани от ползунка, px', min: 0, max: 30, step: 0.5 },
+          { path: 'sliderTrackH', label: 'Толщина дорожки, px', min: 1, max: 20, step: 0.5 },
+          { path: 'sliderThumbD', label: 'Диаметр кружка, px', min: 4, max: 40, step: 0.5 },
+          { path: 'sliderLineW', label: 'Ширина линии при перетаскивании, px', min: 1, max: 20, step: 0.5 },
+          { path: 'sliderLineH', label: 'Высота линии при перетаскивании, px', min: 4, max: 60, step: 0.5 },
+          { path: 'sliderThumbGap', label: 'Зазор вокруг кружка, px', min: 0, max: 12, step: 0.5 },
+          { path: 'sliderHit', label: 'Зона нажатия по высоте, px', min: 6, max: 60, step: 1 },
+          { path: 'sliderMargin', label: 'Отступ дорожки от ушей, px', min: 0, max: 60, step: 1 },
+          { path: 'waveAmp', label: 'Амплитуда волны, px', min: 0, max: 12, step: 0.5 },
+          { path: 'waveLen', label: 'Длина волны, px', min: 6, max: 80, step: 1 },
+          { path: 'waveSpeed', label: 'Скорость бега волны, px/s', min: 0, max: 200, step: 1 },
+          { path: 'waveTaper', label: 'Сглаживание волны у краёв, px', min: 1, max: 60, step: 1 },
+          { path: 'waveSpring.k', label: 'Пружина волны: жёсткость', min: 50, max: 1000, step: 10 },
+          { path: 'waveSpring.z', label: 'Пружина волны: затухание (ζ)', min: 0.05, max: 1.5, step: 0.01 },
+          { path: 'squeezeSpring.k', label: 'Кружок в линию: жёсткость', min: 50, max: 1000, step: 10 },
+          { path: 'squeezeSpring.z', label: 'Кружок в линию: затухание (ζ)', min: 0.05, max: 1.5, step: 0.01 },
+          { path: 'thumbSpring.k', label: 'Движение кружка: жёсткость', min: 50, max: 1500, step: 10 },
+          { path: 'thumbSpring.z', label: 'Движение кружка: затухание (ζ)', min: 0.05, max: 1.5, step: 0.01 },
+        ]},
+        { title: 'Силуэт в покое', items: [
+          { path: 'earWidth', label: 'Ширина ушей, %', min: 1, max: 30, step: 0.01 },
+          { path: 'earDepth', label: 'Уровень плато между ушами, %', min: 0, max: 80, step: 0.01 },
+          { path: 'earX1', label: 'Изгиб уха: контрольная 1, X', min: 0, max: 1, step: 0.001 },
+          { path: 'earY1', label: 'Изгиб уха: контрольная 1, Y', min: 0, max: 1.5, step: 0.001 },
+          { path: 'earX2', label: 'Изгиб уха: контрольная 2, X', min: 0, max: 1, step: 0.001 },
+          { path: 'earY2', label: 'Изгиб уха: контрольная 2, Y', min: 0, max: 1.5, step: 0.001 },
+          { path: 'bottomX', label: 'Нижнее скругление, ширина %', min: 0, max: 30, step: 0.01 },
+          { path: 'bottomY', label: 'Нижнее скругление, высота %', min: 0, max: 80, step: 0.01 },
+        ]},
+        { title: 'Скругление углов тайла', items: [
+          { path: 'radiusMin', label: 'Радиус вдали от края, px', min: 0, max: 24, step: 1 },
+          { path: 'radiusMax', label: 'Радиус у края, px', min: 0, max: 40, step: 1 },
+          { path: 'radiusRamp', label: 'Ширина зоны перехода, px', min: 4, max: 120, step: 1 },
+        ]},
+        { title: 'Перетаскивание', items: [
+          { path: 'bodyDrag.k', label: 'Жёсткость за пальцем', min: 50, max: 2000, step: 10 },
+          { path: 'bodyDrag.z', label: 'Затухание за пальцем (ζ)', min: 0.1, max: 1.5, step: 0.01 },
+          { path: 'dragThreshold', label: 'Порог начала перетаскивания, px', min: 0, max: 20, step: 1 },
+          { path: 'hitPad', label: 'Зона захвата, px', min: 0, max: 16, step: 1 },
+        ]},
+        { title: 'Сдвиг острова при перетаскивании', open: true, items: [
+          { path: 'driftRatio', label: 'Сдвиг за положением индикатора', min: -0.5, max: 0.5, step: 0.005 },
+          { path: 'driftVelocity', label: 'Сдвиг за скоростью индикатора', min: -0.1, max: 0.1, step: 0.001 },
+          { path: 'driftMax', label: 'Макс. сдвиг острова, px', min: 0, max: 60, step: 1 },
+          { path: 'driftSpring.k', label: 'Жёсткость сдвига', min: 50, max: 1500, step: 10 },
+          { path: 'driftSpring.z', label: 'Затухание сдвига (ζ)', min: 0.05, max: 1.5, step: 0.01 },
+          { path: 'driftReleaseSpring.k', label: 'Жёсткость возврата', min: 50, max: 1500, step: 10 },
+          { path: 'driftReleaseSpring.z', label: 'Затухание возврата (ζ)', min: 0.05, max: 1.5, step: 0.01 },
+        ]},
+        { title: 'Края тайла', items: [
+          { path: 'leadEdge.k', label: 'Жёсткость ведущего края', min: 100, max: 4000, step: 10 },
+          { path: 'leadEdge.z', label: 'Затухание ведущего края (ζ)', min: 0.1, max: 1.5, step: 0.01 },
+          { path: 'trailEdge.k', label: 'Жёсткость хвоста', min: 50, max: 3000, step: 10 },
+          { path: 'trailEdge.z', label: 'Затухание хвоста (ζ)', min: 0.1, max: 1.5, step: 0.01 },
+          { path: 'maxStretch', label: 'Макс. растяжение, px', min: 0, max: 40, step: 1 },
+          { path: 'minWidth', label: 'Мин. ширина тайла, px', min: 2, max: 40, step: 1 },
+        ]},
+        { title: 'Стенки и ограничитель', items: [
+          { path: 'wall.k', label: 'Жёсткость стенок', min: 100, max: 3000, step: 10 },
+          { path: 'wall.z', label: 'Затухание стенок (ζ)', min: 0.1, max: 1.5, step: 0.01 },
+          { path: 'tether.k', label: 'Жёсткость ограничителя', min: 100, max: 4000, step: 10 },
+          { path: 'tether.z', label: 'Затухание ограничителя (ζ)', min: 0.1, max: 1.5, step: 0.01 },
+        ]},
+        { title: 'Плюс и зелёная панель', items: [
+          { path: 'panelSpring.k', label: 'Жёсткость панели', min: 100, max: 2000, step: 10 },
+          { path: 'panelSpring.z', label: 'Затухание панели (ζ)', min: 0.1, max: 1.5, step: 0.01 },
+          { path: 'plusSpring.k', label: 'Жёсткость глифа плюса', min: 100, max: 2000, step: 10 },
+          { path: 'plusSpring.z', label: 'Затухание глифа (ζ)', min: 0.1, max: 1.5, step: 0.01 },
+          { path: 'panelHidden', label: 'Уезд панели, %', min: 0, max: 200, step: 1 },
+          { path: 'plusHidden', label: 'Уезд глифа, %', min: 0, max: 200, step: 1 },
+          { path: 'occEnter', label: 'Прятать плюс за, px', min: 0, max: 40, step: 1 },
+          { path: 'occExit', label: 'Показывать плюс после, px', min: 0, max: 60, step: 1 },
+          { path: 'actionRadius', label: 'Скругление плюса, px', min: 0, max: 40, step: 1 },
+        ]},
+        { title: 'Геометрия', items: [
+          { path: 'islandWidth', label: 'Ширина острова, px', min: 240, max: 480, step: 1, geom: true },
+          { path: 'islandHeight', label: 'Высота острова, px', min: 60, max: 140, step: 1, geom: true },
+          { path: 'tabHeight', label: 'Высота вкладок, %', min: 30, max: 100, step: 1 },
+          { path: 'actionWidth', label: 'Ширина плюса, %', min: 40, max: 100, step: 1, geom: true },
+          { path: 'iconSize', label: 'Размер иконок, px', min: 16, max: 48, step: 1 },
+          { path: 'inset', label: 'Отступ тайла, px', min: 0, max: 16, step: 1, geom: true },
+          { path: 'hoverOpacity', label: 'Прозрачность при наведении', min: 0.2, max: 1, step: 0.01 },
+        ]},
+        { title: 'Точность и частота', items: [
+          { path: 'substeps', label: 'Подшаги физики, шагов/с', min: 60, max: 480, step: 10 },
+          { path: 'settlePos', label: 'Порог остановки, px', min: 0.005, max: 0.5, step: 0.005 },
+          { path: 'settleVel', label: 'Порог остановки, px/s', min: 0.05, max: 3, step: 0.05 },
+        ]},
+        { title: 'Вытягивание индикатора и окно', open: true, items: [
+          { path: 'pullOpen', label: 'Сколько дотянуть, чтобы открылось окно, px', min: 20, max: 300, step: 1 },
+          { path: 'pullMax', label: 'Предел растяжения верхней грани, px', min: 0, max: 120, step: 1 },
+          { path: 'pullLift', label: 'Подъём нижней грани (доля растяжения)', min: 0, max: 1, step: 0.01 },
+          { path: 'pullBias', label: 'Вертикальность жеста (вверх ÷ вбок)', min: 0.2, max: 4, step: 0.05 },
+          { path: 'pullSpring.k', label: 'Жёсткость растяжения', min: 50, max: 1500, step: 10 },
+          { path: 'pullSpring.z', label: 'Затухание растяжения (ζ), меньше — отскок', min: 0.05, max: 1.5, step: 0.01 },
+          { path: 'menuH', label: 'Высота окна, px', min: 60, max: 400, step: 1 },
+          { path: 'menuGap', label: 'Зазор окна над островом, px', min: 0, max: 60, step: 1 },
+          { path: 'closeDelay.bl', label: 'Возврат: нижний левый угол, задержка мс', min: 0, max: 600, step: 5 },
+          { path: 'closeDelay.br', label: 'Возврат: нижний правый угол, задержка мс', min: 0, max: 600, step: 5 },
+          { path: 'closeDelay.tl', label: 'Возврат: верхний левый угол, задержка мс', min: 0, max: 600, step: 5 },
+          { path: 'closeDelay.tr', label: 'Возврат: верхний правый угол, задержка мс', min: 0, max: 600, step: 5 },
+        ]},
+        ...morphGroups,
+        { title: 'Цвета', items: [
+          { path: 'colors.page', label: 'Фон', color: true },
+          { path: 'colors.ink', label: 'Тёмный (силуэт, иконки)', color: true },
+          { path: 'colors.yellow', label: 'Индикатор', color: true },
+          { path: 'colors.green', label: 'Плюс', color: true },
+          { path: 'colors.greenHover', label: 'Плюс при наведении', color: true },
+          { path: 'colors.sliderActive', label: 'Ползунок: заполненная часть', color: true },
+          { path: 'colors.sliderInactive', label: 'Ползунок: остаток', color: true },
+          { path: 'colors.sliderThumb', label: 'Ползунок: кружок', color: true },
+        ]},
+      ];
+
+      const getPath = (obj, path) => path.split('.').reduce((o, k) => o[k], obj);
+      function setPath(obj, path, value) {
+        const keys = path.split('.');
+        const last = keys.pop();
+        keys.reduce((o, k) => o[k], obj)[last] = value;
+      }
+      const decimalsOf = item => (item.color || item.bool || item.step >= 1)
+        ? 0 : String(item.step).split('.')[1].length;
+      const format = (v, item) => {
+        if (item.color) return v;
+        if (item.bool) return v ? 'вкл' : 'выкл';
+        return Number(v).toFixed(decimalsOf(item));
+      };
+
+      const fields = [];
+      let fieldSeq = 0;
+
+      // MD3-слайдер: активная часть, ручка, остаток с точкой. Позиция задаётся через --f (0..1).
+      const sliderKicks = new Set();   // чтобы слайдеры подхватывали смену настроек ms.*
+      function makeSlider(item, commit) {
+        const el = document.createElement('div');
+        el.className = 'md-slider';
+        el.tabIndex = 0;
+        el.setAttribute('role', 'slider');
+        el.setAttribute('aria-valuemin', item.min);
+        el.setAttribute('aria-valuemax', item.max);
+        el.innerHTML = '<span class="ms-active"></span><span class="ms-handle"></span>' +
+          '<span class="ms-inactive"><i class="ms-dot"></i></span><span class="ms-bubble"></span>';
+        const bubble = el.querySelector('.ms-bubble');
+        const dec = decimalsOf(item);
+        let value = null;
+        // Пружины: положение ручки (f) и её ширина (w) догоняют цель с отскоком. Дорожка — прямая.
+        let f = 0, vf = 0, tf = 0, w = CFG.ms.handleW, vw = 0, pressed = false, raf = 0, last = 0;
+        const render = () => {
+          el.style.setProperty('--f', f.toFixed(5));
+          el.style.setProperty('--hw', Math.max(0, w).toFixed(3) + 'px');
+        };
+        const tick = now => {
+          raf = 0;
+          if (!last) last = now;
+          const el_ = Math.min((now - last) / 1000, 1 / 30);
+          last = now;
+          const m = CFG.ms;
+          const kf = m.moveK, cf = 2 * m.moveZ * Math.sqrt(kf);
+          const kw = m.squeezeK, cw = 2 * m.squeezeZ * Math.sqrt(kw);
+          const tw = pressed ? m.handleWActive : m.handleW;
+          const n = Math.max(1, Math.ceil(el_ * 240));
+          const dt = el_ / n;
+          for (let i = 0; i < n; i++) {
+            vf += (kf * (tf - f) - cf * vf) * dt; f += vf * dt;
+            vw += (kw * (tw - w) - cw * vw) * dt; w += vw * dt;
+          }
+          if (Math.abs(tf - f) < 5e-4 && Math.abs(vf) < 5e-3 && Math.abs(tw - w) < 0.01 && Math.abs(vw) < 0.05) {
+            f = tf; w = tw; vf = 0; vw = 0; last = 0; render(); return;
+          }
+          render();
+          raf = requestAnimationFrame(tick);
+        };
+        const kick = () => {
+          if (!CFG.ms.spring) { f = tf; w = pressed ? CFG.ms.handleWActive : CFG.ms.handleW; vf = vw = 0; render(); return; }
+          if (!raf) { last = 0; raf = requestAnimationFrame(tick); }
+        };
+        sliderKicks.add(kick);
+        const norm = v => {
+          v = clamp(v, item.min, item.max);
+          v = item.min + Math.round((v - item.min) / item.step) * item.step;
+          return Number(clamp(v, item.min, item.max).toFixed(dec));
+        };
+        const set = (v, fire) => {
+          v = norm(v);
+          const changed = v !== value;
+          const first = value === null;
+          value = v;
+          tf = (v - item.min) / (item.max - item.min);
+          if (first) { f = tf; render(); } else kick();
+          el.setAttribute('aria-valuenow', String(v));
+          bubble.textContent = format(v, item);
+          if (fire && changed) commit(v);
+        };
+        const fromX = x => {
+          const r = el.getBoundingClientRect();
+          const hw = CFG.ms.handleW;
+          const f = clamp((x - r.left - hw / 2) / Math.max(1, r.width - hw), 0, 1);
+          set(item.min + f * (item.max - item.min), true);
+        };
+        let st = null;
+        const begin = e => {
+          st.drag = true;
+          pressed = true; kick();
+          el.classList.add('is-active');
+          try { el.setPointerCapture(st.id); } catch (_) {}
+          fromX(e.clientX);
+        };
+        el.addEventListener('pointerdown', e => {
+          if (e.button !== 0 || !e.isPrimary) return;
+          st = { id: e.pointerId, x: e.clientX, y: e.clientY, drag: false };
+          // Мышью тянем сразу; пальцем ждём горизонтального движения, чтобы не мешать прокрутке списка.
+          if (e.pointerType === 'mouse') begin(e);
+        });
+        el.addEventListener('pointermove', e => {
+          if (!st || e.pointerId !== st.id) return;
+          if (!st.drag) {
+            const dx = Math.abs(e.clientX - st.x), dy = Math.abs(e.clientY - st.y);
+            if (dx > 6 && dx > dy) begin(e);
+            return;
+          }
+          fromX(e.clientX);
+        });
+        const end = e => {
+          if (!st || e.pointerId !== st.id) return;
+          if (!st.drag && e.type === 'pointerup') {
+            fromX(e.clientX);
+            pressed = true; kick();
+            setTimeout(() => { pressed = false; kick(); }, 140);
+          } else { pressed = false; kick(); }
+          st = null;
+          el.classList.remove('is-active');
+        };
+        el.addEventListener('pointerup', end);
+        el.addEventListener('pointercancel', end);
+        el.addEventListener('keydown', e => {
+          const s = item.step;
+          const d = { ArrowLeft: -s, ArrowDown: -s, ArrowRight: s, ArrowUp: s, PageDown: -s * 10, PageUp: s * 10 }[e.key];
+          if (d !== undefined) set(value + d, true);
+          else if (e.key === 'Home') set(item.min, true);
+          else if (e.key === 'End') set(item.max, true);
+          else return;
+          e.preventDefault();
+        });
+        return { el, set };
+      }
+
+      function makeRow(item) {
+        const row = document.createElement('div');
+        row.className = 'mrow';
+        const id = 'p-' + (++fieldSeq);
+        const label = document.createElement('label');
+        label.textContent = labelFor(item);
+        label.id = id + 'l';
+        const output = document.createElement('output');
+        let input = null, slider = null;
+        const commit = v => {
+          setPath(MANUAL, item.path, item.mul ? Number((v / item.mul).toFixed(4)) : v);
+          if (item.path === 'sliderProgress') S.progress = MANUAL.sliderProgress;
+          output.textContent = format(v, item);
+          onChange(item);
+        };
+        if (item.color || item.bool) {
+          row.classList.add('inline');
+          input = document.createElement('input');
+          input.type = item.color ? 'color' : 'checkbox';
+          input.id = id;
+          label.htmlFor = id;
+          input.addEventListener('input', () => commit(item.bool ? input.checked : input.value));
+          row.append(label, input);
+        } else {
+          const top = document.createElement('div');
+          top.className = 'mrow-top';
+          top.append(label, output);
+          slider = makeSlider(item, commit);
+          slider.el.setAttribute('aria-labelledby', label.id);
+          row.append(top, slider.el);
+        }
+        const entry = { item, input, output, slider };
+        fields.push(entry);
+        // Строка создаётся лениво (при открытии раздела), поэтому сразу берём текущее значение из MANUAL.
+        syncField(entry);
+        return row;
+      }
+
+      function syncField({ item, input, output, slider }) {
+        const stored = getPath(MANUAL, item.path);
+        const v = item.mul ? Number((stored * item.mul).toFixed(4)) : stored;
+        if (slider) slider.set(v, false);
+        else if (item.bool) input.checked = !!v;
+        else input.value = String(v);
+        output.textContent = format(v, item);
+      }
+      function syncFields() {
+        fields.forEach(syncField);
+      }
+
+      // ---------- Структура меню: разделы → подразделы → настройки ----------
+      const ALL = new Map(SCHEMA.flatMap(g => g.items).map(i => [i.path, i]));
+      const P = (...paths) => paths.map(p => { const it = ALL.get(p); if (!it) throw new Error('нет настройки ' + p); return it; });
+      const G = Object.fromEntries(SCHEMA.map(g => [g.title, g.items]));
+      const num = (path, label, min, max, step, extra = {}) => ({ path, label, min, max, step, ...extra });
+      const bool = (path, label) => ({ path, label, bool: true });
+      const col = (path, label) => ({ path, label, color: true });
+      const cornerNames = ['Общие', 'Верх‑право', 'Верх‑лево', 'Низ‑право', 'Низ‑лево'];
+
+      // Понятные подписи (по пути настройки); для остальных остаётся подпись из схемы.
+      const sp_ = (what, z) => z ? `Гашение отскока: ${what} (меньше = больше отскока)` : `Упругость: ${what}`;
+      const LABELS = {
+        'bodyMove.k': sp_('переезд индикатора по тапу'), 'bodyMove.z': sp_('переезд индикатора по тапу', 1),
+        maxSpeed: 'Максимальная скорость индикатора, px/s', dirThreshold: 'Плавность смены направления, px/s',
+        pressScale: 'Сжатие значка плюса при нажатии (масштаб)', pressMs: 'Длительность нажатия плюса, мс',
+        islandScale: 'Масштаб острова при нажатии', islandLift: 'Подъём острова при нажатии, px',
+        pressDelay: 'Задержка до реакции на нажатие, мс', pressOnlyIndicator: 'Реагировать только на нажатие по индикатору',
+        'pressSpring.k': sp_('сжатие при нажатии'), 'pressSpring.z': sp_('сжатие при нажатии', 1),
+        'releaseSpring.k': sp_('возврат при отпускании'), 'releaseSpring.z': sp_('возврат при отпускании', 1),
+        pressSettle: 'Порог остановки анимации нажатия',
+        planeY: 'Высота верхней грани при нажатии, %', planeR: 'Скругление углов верхней грани, px',
+        planeK: 'Округлость углов (меньше = квадратнее)', indicatorSync: 'Углы индикатора как у верхней грани',
+        indTopR: 'Углы индикатора вручную, px',
+        sliderOn: 'Показывать ползунок на острове', sliderPlaying: 'Воспроизведение (бежит волна)',
+        sliderProgress: 'Положение ползунка', sliderRate: 'Скорость воспроизведения, %/с',
+        sliderGap: 'Расстояние от дорожки до верхней грани, px', sliderTrackH: 'Толщина дорожки, px',
+        sliderThumbD: 'Диаметр кружка, px', sliderLineW: 'Ширина кружка при перетаскивании (линия), px',
+        sliderLineH: 'Высота кружка при перетаскивании (линия), px', sliderThumbGap: 'Зазор между кружком и дорожкой, px',
+        sliderHit: 'Высота области нажатия, px', sliderMargin: 'Отступ дорожки от ушей, px',
+        waveAmp: 'Высота волны, px', waveLen: 'Длина волны, px', waveSpeed: 'Скорость бега волны, px/s',
+        waveTaper: 'Затухание волны у краёв, px',
+        'waveSpring.k': sp_('появление и пропадание волны'), 'waveSpring.z': sp_('появление и пропадание волны', 1),
+        'squeezeSpring.k': sp_('превращение кружка в линию'), 'squeezeSpring.z': sp_('превращение кружка в линию', 1),
+        'thumbSpring.k': sp_('движение кружка'), 'thumbSpring.z': sp_('движение кружка', 1),
+        earWidth: 'Ширина боковых «ушей», %', earDepth: 'Глубина выемки между ушами, %',
+        earX1: 'Изгиб уха: точка 1, по горизонтали', earY1: 'Изгиб уха: точка 1, по вертикали',
+        earX2: 'Изгиб уха: точка 2, по горизонтали', earY2: 'Изгиб уха: точка 2, по вертикали',
+        bottomX: 'Нижние углы: ширина скругления, %', bottomY: 'Нижние углы: высота скругления, %',
+        radiusMin: 'Скругление индикатора в центре, px', radiusMax: 'Скругление индикатора у края, px',
+        radiusRamp: 'Длина зоны смены скругления, px',
+        'bodyDrag.k': sp_('следование за пальцем'), 'bodyDrag.z': sp_('следование за пальцем', 1),
+        dragThreshold: 'Порог начала перетаскивания, px', hitPad: 'Запас зоны захвата индикатора, px',
+        driftRatio: 'Сдвиг острова за положением индикатора', driftVelocity: 'Сдвиг острова за скоростью индикатора',
+        driftMax: 'Максимальный сдвиг острова, px',
+        'driftSpring.k': sp_('сдвиг острова при перетаскивании'), 'driftSpring.z': sp_('сдвиг острова при перетаскивании', 1),
+        'driftReleaseSpring.k': sp_('возврат острова на место'), 'driftReleaseSpring.z': sp_('возврат острова на место', 1),
+        'leadEdge.k': sp_('передний край'), 'leadEdge.z': sp_('передний край', 1),
+        'trailEdge.k': sp_('задний край (хвост)'), 'trailEdge.z': sp_('задний край (хвост)', 1),
+        stretchOn: 'Растягивать индикатор при движении',
+        maxStretch: 'Максимальное растяжение индикатора, px', minWidth: 'Минимальная ширина индикатора, px',
+        'wall.k': sp_('границы острова'), 'wall.z': sp_('границы острова', 1),
+        'tether.k': sp_('ограничитель ширины'), 'tether.z': sp_('ограничитель ширины', 1),
+        'panelSpring.k': sp_('зелёная панель плюса'), 'panelSpring.z': sp_('зелёная панель плюса', 1),
+        'plusSpring.k': sp_('значок плюса'), 'plusSpring.z': sp_('значок плюса', 1),
+        panelHidden: 'Насколько уезжает панель при прятании, %', plusHidden: 'Насколько уезжает значок при прятании, %',
+        occEnter: 'Прятать плюс при сближении, px', occExit: 'Показывать плюс при удалении, px',
+        actionRadius: 'Скругление плюса, px',
+        islandWidth: 'Ширина острова, px', islandHeight: 'Высота острова, px', tabHeight: 'Высота иконок-вкладок, %',
+        actionWidth: 'Ширина плюса, %', iconSize: 'Размер иконок, px', inset: 'Отступ индикатора от краёв ячейки, px',
+        hoverOpacity: 'Прозрачность иконок при наведении',
+        substeps: 'Точность физики (шагов в секунду)', settlePos: 'Порог остановки по положению, px',
+        settleVel: 'Порог остановки по скорости, px/s',
+        pullOpen: 'Сколько вытянуть, чтобы открылось меню, px', pullMax: 'Максимальное растяжение вверх, px',
+        pullLift: 'Подъём нижней грани (доля растяжения)', pullBias: 'Насколько жест должен быть вертикальным',
+        'pullSpring.k': sp_('возврат после вытягивания'), 'pullSpring.z': sp_('возврат после вытягивания', 1),
+        menuH: 'Высота окна меню, px', menuGap: 'Зазор между окном и островом, px',
+        'closeDelay.bl': 'Закрытие: задержка нижнего левого угла, мс', 'closeDelay.br': 'Закрытие: задержка нижнего правого угла, мс',
+        'closeDelay.tl': 'Закрытие: задержка верхнего левого угла, мс', 'closeDelay.tr': 'Закрытие: задержка верхнего правого угла, мс',
+        'colors.page': 'Цвет фона страницы', 'colors.ink': 'Цвет острова и иконок', 'colors.yellow': 'Цвет индикатора',
+        'colors.green': 'Цвет плюса', 'colors.greenHover': 'Цвет плюса при наведении',
+        'colors.sliderActive': 'Цвет пройденной части ползунка', 'colors.sliderInactive': 'Цвет остатка ползунка',
+        'colors.sliderThumb': 'Цвет кружка ползунка',
+        'morph.on': 'Морф в окно по повторному тапу на «домик»',
+      };
+      const MORPH_L = {
+        delay: 'Задержка старта угла, мс', preX: 'Замах перед стартом по горизонтали, px (+ вправо)',
+        preY: 'Замах перед стартом по вертикали, px (+ вниз)', preMs: 'Длительность замаха, мс',
+        'x.k': sp_('угол по горизонтали'), 'x.z': sp_('угол по горизонтали', 1),
+        'y.k': sp_('угол по вертикали'), 'y.z': sp_('угол по вертикали', 1), r: 'Радиус угла, px',
+      };
+      const labelFor = item => {
+        if (LABELS[item.path]) return LABELS[item.path];
+        const m = item.path.match(/^morph\.(?:tl|tr|bl|br)\.(.+)$/);
+        return (m && MORPH_L[m[1]]) || item.label;
+      };
+
+      const CATS = [
+        { title: 'Остров', subs: [
+          { title: 'Размер и цвета', items: [...G['Геометрия'], ...P('colors.page', 'colors.ink')] },
+          { title: 'Форма ушей', items: G['Силуэт в покое'] },
+          { title: 'Вид при нажатии', items: [
+            { header: 'Реакция при нажатии' },
+            ...G['Нажатие: морф острова'],
+            { header: 'Вид в прижатом состоянии' },
+            ...G['Плоскость и углы (прижатый вид)'],
+          ] },
+          { title: 'Сдвиг при перетаскивании', items: G['Сдвиг острова при перетаскивании'] },
+        ]},
+        { title: 'Индикатор (жёлтый)', subs: [
+          { title: 'Переезд по тапу', items: [...P('bodyMove.k', 'bodyMove.z', 'maxSpeed', 'dirThreshold'),
+            num('base.speed', 'Скорость (общая), %', 50, 200, 1),
+            num('base.bounce', 'Отскок (общий), %', 0, 100, 1)] },
+          { title: 'Перетаскивание', items: G['Перетаскивание'] },
+          { title: 'Растяжение краёв', items: [bool('stretchOn', 'Растяжение при движении (вкл/выкл)'), ...G['Края тайла']] },
+          { title: 'Границы', items: G['Стенки и ограничитель'] },
+          { title: 'Скругление', items: G['Скругление углов тайла'] },
+          { title: 'Вытягивание вверх', items: P('pullOpen', 'pullMax', 'pullLift', 'pullBias', 'pullSpring.k', 'pullSpring.z') },
+          { title: 'Цвет', items: P('colors.yellow') },
+        ]},
+        { title: 'Плюс', subs: [
+          { title: 'Прятание плюса', items: G['Плюс и зелёная панель'] },
+          { title: 'Нажатие на плюс', items: P('pressScale', 'pressMs') },
+          { title: 'Цвета', items: P('colors.green', 'colors.greenHover') },
+        ]},
+        { title: 'Ползунок острова', subs: [
+          { title: 'Воспроизведение', items: P('sliderOn', 'sliderPlaying', 'sliderProgress', 'sliderRate') },
+          { title: 'Размеры', items: P('sliderGap', 'sliderTrackH', 'sliderThumbD', 'sliderLineW', 'sliderLineH', 'sliderThumbGap', 'sliderHit', 'sliderMargin') },
+          { title: 'Волна', items: P('waveAmp', 'waveLen', 'waveSpeed', 'waveTaper') },
+          { title: 'Анимации', items: P('waveSpring.k', 'waveSpring.z', 'squeezeSpring.k', 'squeezeSpring.z', 'thumbSpring.k', 'thumbSpring.z') },
+          { title: 'Цвета', items: P('colors.sliderActive', 'colors.sliderInactive', 'colors.sliderThumb') },
+        ]},
+        { title: 'Окно меню', subs: [
+          { title: 'Размер окна', items: [...P('menuH', 'menuGap'),
+            num('menuPadTop', 'Отступ содержимого сверху, px', 0, 40, 1)] },
+          { title: 'Полоска меню', items: [
+            col('menuHandle.color', 'Цвет полоски'),
+            num('menuHandle.zone', 'Высота зоны полоски, px', 16, 60, 1),
+            num('menuHandle.width', 'Длина полоски, px', 16, 160, 1),
+            num('menuHandle.widthActive', 'Длина полоски при нажатии, px', 16, 200, 1),
+            num('menuHandle.height', 'Толщина полоски, px', 2, 16, 1),
+            num('menuHandle.stretchPill', 'Растяжение полоски вместе с окном (×)', 0, 3, 0.05),
+            num('menuHandle.openAt', 'Сколько вытянуть, чтобы окно отделилось, px', 10, 200, 1),
+            num('menuHandle.max', 'Предел растяжения отделённого окна, px', 10, 300, 1),
+            num('menuHandle.lift', 'Подъём нижней грани окна (доля)', 0, 1, 0.01),
+            num('menuHandle.radius', 'Скругление отделённого окна, px', 0, 40, 0.5),
+            num('menuHandle.k', 'Упругость растяжения окна', 50, 1500, 10),
+            num('menuHandle.z', 'Гашение отскока растяжения (меньше = больше отскока)', 0.05, 1.5, 0.01),
+          num('menuHandle.contentK', 'Упругость содержимого (отстаёт от фона)', 50, 1500, 10),
+          num('menuHandle.whiteAt', 'Растяжение, при котором панель становится белой, px', 10, 300, 1),
+          num('menuHandle.handleK', 'Упругость полоски (отстаёт от окна)', 50, 1500, 10),
+          num('menuHandle.handleZ', 'Гашение полоски (меньше = больше отскока)', 0.05, 1.5, 0.01),
+          num('menuHandle.indFrom', 'Размер индикатора при появлении (доля)', 0, 1, 0.01),
+          num('menuHandle.indK', 'Упругость роста индикатора на острове', 50, 1500, 10),
+          num('menuHandle.indZ', 'Гашение роста индикатора (меньше = больше отскока)', 0.05, 1.5, 0.01),
+          num('menuHandle.contentZ', 'Гашение содержимого (меньше = больше отскока)', 0.05, 1.5, 0.01),
+            num('menuHandle.trail', 'Упругость мягкого края (меньше = сильнее отставание)', 0.1, 1.5, 0.01),
+            num('menuHandle.trailZ', 'Гашение мягкого края (меньше = больше отскока)', 0.05, 1.5, 0.01),
+            bool('menuHandle.backLeads', 'Верх впереди, низ догоняет (наоборот)'),
+            num('menuHandle.minW', 'Минимальная ширина окна, px', 120, 600, 1),
+            num('menuHandle.minH', 'Минимальная высота окна, px', 100, 800, 1),
+            num('menuHandle.moveK', 'Упругость перемещения окна', 50, 1500, 10),
+            num('menuHandle.moveZ', 'Затухание перемещения (меньше = отскок)', 0.05, 1.5, 0.01),
+            num('menuHandle.resizeK', 'Упругость размера окна', 50, 1500, 10),
+            num('menuHandle.resizeZ', 'Затухание размера (меньше = отскок)', 0.05, 1.5, 0.01),
+            num('menuHandle.k', 'Упругость растяжения окна', 50, 1500, 10),
+            num('menuHandle.z', 'Затухание растяжения (меньше = отскок)', 0.05, 1.5, 0.01),
+            num('menuHandle.widthK', 'Упругость длины полоски', 50, 1500, 10),
+            num('menuHandle.widthZ', 'Затухание длины полоски (меньше = отскок)', 0.05, 1.5, 0.01),
+            num('menuHandle.cornerK', 'Упругость угла при отделении', 50, 1500, 10),
+            num('menuHandle.cornerZ', 'Затухание угла (меньше = отскок)', 0.05, 1.5, 0.01),
+            bool('menuHandle.spring', 'Пружинная анимация (отскок)'),
+          ] },
+          { title: 'Порядок углов', items: [
+            num('base.cascade', 'Каскад углов, мс', 0, 200, 1),
+            num('base.lash', 'Замах правых углов, px', 0, 30, 0.5),
+            num('base.lag', 'Отставание правых углов, %', 0, 100, 1)] },
+          { title: 'Закрытие', items: P('closeDelay.bl', 'closeDelay.br', 'closeDelay.tl', 'closeDelay.tr') },
+          ...morphGroups.map((g, i) => ({ title: i ? 'Угол: ' + cornerNames[i] : 'Общее', items: g.items })),
+        ]},
+        { title: 'Вкладки меню', subs: [
+          { title: 'Пилюля (разделы)', items: [
+            bool('mt.spring', 'Пружинная анимация (отскок)'),
+            num('mt.pillK', 'Упругость пилюли', 50, 1500, 10),
+            num('mt.pillZ', 'Гашение отскока пилюли (меньше = больше отскока)', 0.05, 1.5, 0.01),
+            col('mt.pillColor', 'Цвет пилюли'),
+            col('mt.pillText', 'Цвет текста на пилюле'),
+            num('mt.pillR', 'Скругление пилюли, px', 0, 40, 1)] },
+          { title: 'Линия (подразделы)', items: [
+            num('mt.lineK', 'Упругость линии', 50, 1500, 10),
+            num('mt.lineZ', 'Гашение отскока линии (меньше = больше отскока)', 0.05, 1.5, 0.01),
+            num('mt.lineH', 'Толщина линии, px', 1, 8, 0.5),
+            num('mt.lineInset', 'Отступ линии от краёв вкладки, px', 0, 24, 0.5),
+            col('mt.lineColor', 'Цвет линии')] },
+          { title: 'Растяжение', items: [
+            bool('mt.pillStretch', 'Растягивать пилюлю при движении'),
+            bool('mt.lineStretch', 'Растягивать линию при движении'),
+            bool('mt.backLeads', 'Фон впереди, текст догоняет (наоборот)'),
+            num('mt.trail', 'Упругость заднего края (меньше = сильнее растяжение)', 0.1, 1.5, 0.01),
+            num('mt.trailZ', 'Гашение заднего края (меньше = больше отскока)', 0.05, 1.5, 0.01)] },
+          { title: 'Пролистывание', items: [
+            bool('mt.scrollSpring', 'Пружинное пролистывание вкладок'),
+            num('mt.scrollK', 'Упругость пролистывания', 50, 1000, 10),
+            num('mt.scrollZ', 'Гашение отскока (меньше = больше отскока)', 0.1, 1.5, 0.01)] },
+          { title: 'Текст', items: [
+            col('mt.textColor', 'Цвет текста вкладок'),
+            num('mt.fontSize', 'Размер текста разделов, px', 8, 20, 0.5),
+            num('mt.subFontSize', 'Размер текста подразделов, px', 8, 20, 0.5),
+            num('mt.opacity', 'Прозрачность неактивных вкладок', 0.1, 1, 0.01),
+            num('mt.opacityHover', 'Прозрачность при наведении', 0.1, 1, 0.01),
+            num('mt.textMs', 'Скорость смены цвета текста, мс', 0, 600, 10)] },
+          { title: 'Отступы', items: [
+            num('mt.gap', 'Зазор между вкладками, px', 0, 20, 0.5),
+            num('mt.padX', 'Отступ разделов по горизонтали, px', 2, 30, 0.5),
+            num('mt.padY', 'Отступ разделов по вертикали, px', 0, 20, 0.5),
+            num('mt.subPadX', 'Отступ подразделов по горизонтали, px', 2, 30, 0.5),
+            num('mt.subPadY', 'Отступ подразделов по вертикали, px', 0, 20, 0.5)] },
+        ]},
+        { title: 'Слайдеры меню', subs: [
+          { title: 'Дорожка', items: [
+            num('ms.height', 'Высота слайдера, px', 12, 64, 1),
+            num('ms.trackH', 'Толщина дорожки, px', 2, 48, 1),
+            num('ms.gap', 'Зазор у ручки, px', 0, 16, 0.5),
+            num('ms.outerR', 'Внешнее скругление, px', 0, 32, 0.5),
+            num('ms.innerR', 'Внутреннее скругление, px', 0, 16, 0.5)] },
+          { title: 'Ручка', items: [
+            num('ms.handleW', 'Ширина ручки, px', 1, 16, 0.5),
+            num('ms.handleWActive', 'Ширина при нажатии, px', 0, 16, 0.5),
+            num('ms.handleH', 'Высота ручки, px', 8, 64, 1),
+            num('ms.handleR', 'Скругление ручки, px', 0, 16, 0.5)] },
+          { title: 'Точка', items: [
+            bool('ms.dotOn', 'Точка на конце'),
+            num('ms.dotD', 'Диаметр точки, px', 0, 16, 0.5),
+            num('ms.dotInset', 'Отступ от края, px', 0, 30, 0.5)] },
+          { title: 'Цвета', items: [
+            col('ms.active', 'Активная часть'),
+            col('ms.handle', 'Ручка'),
+            col('ms.inactive', 'Остаток'),
+            num('ms.inactiveA', 'Прозрачность остатка', 0, 1, 0.01),
+            col('ms.dot', 'Точка'),
+            col('ms.bubbleBg', 'Подсказка: фон'),
+            col('ms.bubbleText', 'Подсказка: текст')] },
+          { title: 'Пружина и подсказка', items: [
+            bool('ms.spring', 'Пружинная анимация (отскок)'),
+            num('ms.moveK', 'Упругость движения ручки', 50, 1500, 10),
+            num('ms.moveZ', 'Гашение отскока движения (меньше = больше отскока)', 0.05, 1.5, 0.01),
+            num('ms.squeezeK', 'Упругость сужения ручки при нажатии', 50, 1500, 10),
+            num('ms.squeezeZ', 'Гашение отскока сужения (меньше = больше отскока)', 0.05, 1.5, 0.01),
+            bool('ms.bubble', 'Подсказка со значением при перетаскивании')] },
+        ]},
+        { title: 'Система', subs: [
+          { title: 'Экспорт и сброс', custom: true },
+          { title: 'Физика', items: G['Точность и частота'] },
+        ]},
+      ];
+
+      const mpCats = document.getElementById('mpCats');
+      const mpSubs = document.getElementById('mpSubs');
+      const mpScroll = document.getElementById('mpScroll');
+
+      function applyAll() {
+        rebuild();
+        applyCss();
+        syncFields();
+        refreshGeometry();
+        ensureRunning();
+        save();
+      }
+
+      function buildSystem() {
+        const wrap = document.createElement('div');
+        const mk = (text, fn) => {
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'mp-btn';
+          b.textContent = text;
+          b.addEventListener('click', fn);
+          return b;
+        };
+        const box = document.createElement('pre');
+        box.className = 'mp-export';
+        box.hidden = true;
+        // Файл: скачать/загрузить JSON. Работает даже там, где localStorage недоступен.
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.accept = 'application/json,.json';
+        fileInput.hidden = true;
+        fileInput.addEventListener('change', () => {
+          const f = fileInput.files && fileInput.files[0];
+          if (!f) return;
+          const reader = new FileReader();
+          reader.onload = () => {
+            try {
+              const data = JSON.parse(String(reader.result));
+              mergeInto(MANUAL, data);
+              S.progress = MANUAL.sliderProgress;
+              applyAll();
+            } catch (err) {
+              box.hidden = false;
+              box.textContent = 'Не удалось прочитать файл: ' + err.message;
+            }
+            fileInput.value = '';
+          };
+          reader.readAsText(f);
+        });
+        wrap.append(
+          mk('Скачать JSON', () => {
+            const text = JSON.stringify(MANUAL, null, 2);
+            const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'md3-spring-island-settings.json';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+          }),
+          mk('Загрузить JSON', () => fileInput.click()),
+          mk('Показать JSON', () => {
+            box.hidden = false;
+            box.textContent = JSON.stringify(MANUAL, null, 2);
+          }),
+          mk('Сброс', () => {
+            Object.assign(MANUAL, defaultsFor());
+            try { localStorage.removeItem(STORE_KEY); } catch (_) {}
+            S.progress = MANUAL.sliderProgress;
+            applyAll();
+          }),
+          fileInput,
+          box
+        );
+        return wrap;
+      }
+
+      function buildList(items) {
+        const wrap = document.createElement('div');
+        items.forEach(item => {
+          if (item.header) {
+            const h = document.createElement('div');
+            h.className = 'mp-subhead';
+            h.textContent = item.header;
+            wrap.append(h);
+          } else wrap.append(makeRow(item));
+        });
+        return wrap;
+      }
+
+      // Пролистывание ряда вкладок на пружине (с лёгким отскоком); касание или колесо прерывают анимацию.
+      function makeSpringScroll(bar) {
+        let pos = 0, vel = 0, tgt = 0, raf = 0, last = 0;
+        const stop = () => { if (raf) cancelAnimationFrame(raf); raf = 0; last = 0; vel = 0; };
+        const tick = now => {
+          raf = 0;
+          if (!last) last = now;
+          const frame = Math.min((now - last) / 1000, 1 / 30);
+          last = now;
+          const k = CFG.mt.scrollK, c = 2 * CFG.mt.scrollZ * Math.sqrt(k);
+          const n = Math.max(1, Math.ceil(frame * 240));
+          const dt = frame / n;
+          for (let i = 0; i < n; i++) { vel += (k * (tgt - pos) - c * vel) * dt; pos += vel * dt; }
+          if (Math.abs(tgt - pos) < 0.3 && Math.abs(vel) < 3) { bar.scrollLeft = tgt; last = 0; vel = 0; return; }
+          bar.scrollLeft = pos;
+          raf = requestAnimationFrame(tick);
+        };
+        ['pointerdown', 'wheel', 'touchstart'].forEach(ev => bar.addEventListener(ev, stop, { passive: true }));
+        return {
+          stop,
+          to(left) {
+            tgt = clamp(left, 0, Math.max(0, bar.scrollWidth - bar.clientWidth));
+            if (!CFG.mt.scrollSpring || reduced) { stop(); bar.scrollLeft = tgt; return; }
+            if (!raf) { pos = bar.scrollLeft; vel = 0; last = 0; raf = requestAnimationFrame(tick); }
+          },
+        };
+      }
+      const scrollers = new WeakMap();
+      const scrollerFor = bar => {
+        let s = scrollers.get(bar);
+        if (!s) { s = makeSpringScroll(bar); scrollers.set(bar, s); }
+        return s;
+      };
+      const centerTab = (bar, btn) => scrollerFor(bar).to(btn.offsetLeft - (bar.clientWidth - btn.offsetWidth) / 2);
+      const makeTab = (text, onClick) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'mp-tab';
+        b.setAttribute('role', 'tab');
+        b.textContent = text;
+        b.addEventListener('click', onClick);
+        return b;
+      };
+
+      // Бегунки вкладок: пилюля (разделы) и линия (подразделы). Левый и правый край едут на своих
+      // пружинах, поэтому при движении бегунок растягивается и отскакивает.
+      function makeTabInd(bar, kind) {
+        const el = document.createElement('i');
+        el.className = 'mp-ind ' + kind;
+        el.setAttribute('aria-hidden', 'true');
+        let l = 0, r = 0, vl = 0, vr = 0, tl = 0, tr = 0, dir = 1, raf = 0, last = 0, ready = false;
+        const draw = () => {
+          el.style.transform = `translateX(${l.toFixed(2)}px)`;
+          el.style.width = `${Math.max(0, r - l).toFixed(2)}px`;
+        };
+        const tick = now => {
+          raf = 0;
+          if (!last) last = now;
+          const frame = Math.min((now - last) / 1000, 1 / 30);
+          last = now;
+          const m = CFG.mt;
+          const k = kind === 'pill' ? m.pillK : m.lineK;
+          const z = kind === 'pill' ? m.pillZ : m.lineZ;
+          let kl = k, kr = k, zl = z, zr = z;
+          if (kind === 'pill' ? m.pillStretch : m.lineStretch) {
+            // Мягкий край отстаёт и растягивает бегунок. backLeads меняет роли местами.
+            const softLeft = (dir > 0) !== m.backLeads;
+            if (softLeft) { kl = k * m.trail; zl = m.trailZ; } else { kr = k * m.trail; zr = m.trailZ; }
+          }
+          const cl = 2 * zl * Math.sqrt(kl), cr = 2 * zr * Math.sqrt(kr);
+          const n = Math.max(1, Math.ceil(frame * 240));
+          const dt = frame / n;
+          for (let i = 0; i < n; i++) {
+            vl += (kl * (tl - l) - cl * vl) * dt; l += vl * dt;
+            vr += (kr * (tr - r) - cr * vr) * dt; r += vr * dt;
+          }
+          // Отставание не выходит за видимую часть ряда (границу меню). Цель всегда внутри допустимого диапазона,
+          // поэтому анимация всё равно доходит до конца.
+          const vL = bar.scrollLeft, vR = vL + bar.clientWidth;
+          l = Math.min(Math.max(l, Math.min(vL, tl)), Math.max(vR, tl));
+          r = Math.min(Math.max(r, Math.min(vL, tr)), Math.max(vR, tr));
+          if (Math.abs(tl - l) < 0.05 && Math.abs(tr - r) < 0.05 && Math.abs(vl) < 0.5 && Math.abs(vr) < 0.5) {
+            l = tl; r = tr; vl = vr = 0; last = 0; draw(); return;
+          }
+          draw();
+          raf = requestAnimationFrame(tick);
+        };
+        const set = (btn, snap) => {
+          if (!btn || !btn.offsetWidth) return;
+          const inset = kind === 'line' ? CFG.mt.lineInset : 0;
+          const nl = btn.offsetLeft + inset;
+          const nr = btn.offsetLeft + btn.offsetWidth - inset;
+          if (ready && !snap && nl === tl && nr === tr) return;
+          const d = Math.sign((nl + nr) - (tl + tr));
+          if (d) dir = d;
+          tl = nl; tr = nr;
+          if (snap || !ready || !CFG.mt.spring || reduced) {
+            l = tl; r = tr; vl = vr = 0; ready = true; draw();
+            return;
+          }
+          if (!raf) { last = 0; raf = requestAnimationFrame(tick); }
+        };
+        // Новые параметры пружины применяются сразу, а не после следующего касания.
+        const kick = () => { if (!raf) { last = 0; raf = requestAnimationFrame(tick); } };
+        return { el, set, kick };
+      }
+
+      const catInd = makeTabInd(mpCats, 'pill');
+      const subInd = makeTabInd(mpSubs, 'line');
+      let catIdx = 0;
+      const subIdx = CATS.map(() => 0);
+      let subBtns = [];
+      let subBuilt = -1;
+      const catBtns = CATS.map((c, i) => makeTab(c.title, () => { catIdx = i; renderMenu(); centerTab(mpCats, catBtns[i]); }));
+      mpCats.append(catInd.el, ...catBtns);
+
+      function placeInds(snap) {
+        catInd.set(catBtns[catIdx], snap);
+        if (!mpSubs.hidden) subInd.set(subBtns[subIdx[catIdx]], snap);
+      }
+      // Меню может быть скрыто при создании; как только вкладки получают размер — ставим бегунки на место.
+      const indObserver = new ResizeObserver(() => placeInds(true));
+      indObserver.observe(mpCats);
+      indObserver.observe(mpSubs);
+
+      function renderMenu() {
+        catBtns.forEach((b, i) => {
+          b.classList.toggle('is-active', i === catIdx);
+          b.setAttribute('aria-selected', String(i === catIdx));
+        });
+        const cat = CATS[catIdx];
+        const si = subIdx[catIdx];
+        const rebuilt = subBuilt !== catIdx;
+        if (rebuilt) {
+          subBtns = cat.subs.map((s, i) => makeTab(s.title, () => { subIdx[catIdx] = i; renderMenu(); centerTab(mpSubs, subBtns[i]); }));
+          mpSubs.replaceChildren(subInd.el, ...subBtns);
+          scrollerFor(mpSubs).stop();
+          mpSubs.scrollLeft = 0;
+          mpSubs.hidden = cat.subs.length < 2;
+          subBuilt = catIdx;
+        }
+        subBtns.forEach((b, i) => {
+          b.classList.toggle('is-active', i === si);
+          b.setAttribute('aria-selected', String(i === si));
+        });
+        const sub = cat.subs[si];
+        if (!sub.node) sub.node = sub.custom ? buildSystem() : buildList(sub.items);
+        mpScroll.replaceChildren(sub.node);
+        mpScroll.scrollTop = 0;
+        catInd.set(catBtns[catIdx], false);
+        if (!mpSubs.hidden) subInd.set(subBtns[si], rebuilt);
+      }
+      renderMenu();
+
+      document.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && menuOpen) toggleIslandMenu(false);
+      });
+
+      // ---------- Старт ----------
+      applyCss();
+      layout();
+      S.wv = CFG.sliderOn && CFG.sliderPlaying && !reduced ? 1 : 0;
+      S.thumb = clamp(S.progress, 0, 1) * sliderGeom().L;
+      setActive(0, true);
+      placeAt(slots[0].x);
+      syncFields();
+
+      new ResizeObserver(() => {
+        layout();
+        if (drag) return;
+        const index = Math.max(0, tabs.findIndex(t => t.dataset.tab === activeId));
+        placeAt(slots[index].x);
+      }).observe(island);
+      ensureRunning();
+    })();
+  </script>
+</body>
+</html>
